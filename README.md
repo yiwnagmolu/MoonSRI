@@ -92,6 +92,16 @@ moon run cmd/main --target wasm -- diff-manifest previous.json integrity.json
 
 按路径列出新增、删除和摘要变化的资源。比较直接使用清单中保存的字符串，例如调整算法顺序也会显示为变化。两个清单相同则返回 `0`，有变化返回 `1`，清单读取或解析失败返回 `2`。
 
+### 要求最低算法强度
+
+发布流程可以用 `--min-algorithm` 要求最强的已识别算法达到指定强度。例如下面的校验会拒绝只有 SHA-256 的条目，即使其摘要正确：
+
+```sh
+moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 integrity.json
+```
+
+单文件用法为 `check <file> <integrity-metadata> --min-algorithm sha384`。低于要求时，批量 JSON 报告中的状态是 `below_minimum`，退出码为 `1`。如果同时出现读取错误或缺少受支持算法，仍优先返回 `2`。
+
 ## MoonBit 库
 
 根包公开以下接口：
@@ -99,6 +109,7 @@ moon run cmd/main --target wasm -- diff-manifest previous.json integrity.json
 - `generate(data : BytesView, algorithm : Algorithm) -> String`：计算一个 SRI 元数据字符串。
 - `parse_metadata(input : String) -> Array[Metadata]`：解析含多个哈希表达式的字符串，忽略未知算法。
 - `verify_bytes(data : BytesView, input : String) -> Verdict`：仅检查元数据中最强的已识别算法；同一强度的多个摘要只要有一个匹配即可。
+- `verify_bytes_at_least(data, input, minimum) -> Result[Verdict, Algorithm]`：对最强算法低于要求的元数据返回 `Err(实际算法)`，其余情况返回普通校验结果。
 
 `Algorithm` 包含 `Sha256`、`Sha384`、`Sha512`；`Verdict` 包含 `Match`、`Mismatch`、`NoSupportedMetadata`。
 

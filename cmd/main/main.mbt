@@ -1,12 +1,14 @@
 ///|
 fn usage() -> Unit {
   println("Usage: moonsri generate <file> [algorithms]")
-  println("       moonsri check <file> <integrity-metadata>")
+  println(
+    "       moonsri check <file> <integrity-metadata> [--min-algorithm algorithm]",
+  )
   println(
     "       moonsri manifest [--algorithm algorithms] [--root dir] [--from files.txt] [--] [file...]",
   )
   println(
-    "       moonsri check-manifest [--json] [--root dir] [--] <manifest.json>",
+    "       moonsri check-manifest [--json] [--root dir] [--min-algorithm algorithm] [--] <manifest.json>",
   )
   println("       moonsri diff-manifest <before.json> <after.json>")
   println(
@@ -81,7 +83,11 @@ fn run(args : Array[String]) -> Int32 {
     _ => ()
   }
   if (command == "generate" && (operands.length() < 1 || operands.length() > 2)) ||
-    (command == "check" && operands.length() != 2) {
+    (
+      command == "check" &&
+      operands.length() != 2 &&
+      (operands.length() != 4 || operands[2] != "--min-algorithm")
+    ) {
     usage()
     return 2
   }
@@ -90,6 +96,12 @@ fn run(args : Array[String]) -> Int32 {
     selected
   } else {
     [@sri.Sha384]
+  }
+  let minimum = if command == "check" && operands.length() == 4 {
+    guard parse_minimum(operands[3]) is Some(selected) else { return 2 }
+    Some(selected)
+  } else {
+    None
   }
   let path = operands[0]
   let data = @fs.read_file_to_bytes(path) catch {
@@ -102,19 +114,39 @@ fn run(args : Array[String]) -> Int32 {
     println(generate_metadata(data[:], algorithms))
     return 0
   }
-  match @sri.verify_bytes(data[:], operands[1]) {
-    @sri.Match => {
-      println("match")
-      0
-    }
-    @sri.Mismatch => {
-      println("mismatch")
-      1
-    }
-    @sri.NoSupportedMetadata => {
-      println("no supported SRI metadata")
-      2
-    }
+  let (code, _, message) = check_metadata(data[:], operands[1], minimum)
+  println(message)
+  code
+}
+
+///|
+fn parse_minimum(name : String) -> @sri.Algorithm? {
+  guard parse_algorithm(name) is Some(algorithm) else {
+    eprintln("Unknown minimum algorithm: " + Json::string(name).stringify())
+    return None
+  }
+  Some(algorithm)
+}
+
+///|
+fn check_metadata(
+  bytes : BytesView,
+  integrity : String,
+  minimum : @sri.Algorithm?,
+) -> (Int32, String, String) {
+  let verdict = match minimum {
+    Some(algorithm) =>
+      match @sri.verify_bytes_at_least(bytes, integrity, algorithm) {
+        Ok(verdict) => verdict
+        Err(_) => return (1, "below_minimum", "below minimum algorithm")
+      }
+    None => @sri.verify_bytes(bytes, integrity)
+  }
+  match verdict {
+    @sri.Match => (0, "match", "match")
+    @sri.Mismatch => (1, "mismatch", "mismatch")
+    @sri.NoSupportedMetadata =>
+      (2, "no_supported_metadata", "no supported SRI metadata")
   }
 }
 

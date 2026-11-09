@@ -52,6 +52,12 @@ jobs:
           printf '\357\273\277examples/hello.js\r\n\r\n%s\r\n' "$asset" > "$temp_dir/assets.txt"
           run_cli manifest --from "$temp_dir/assets.txt" > "$temp_dir/from-list.json"
           run_cli check-manifest "$temp_dir/from-list.json"
+          run_cli manifest --algorithm sha256 examples/hello.js > "$temp_dir/weak.json"
+          run_cli check-manifest --min-algorithm sha256 "$temp_dir/weak.json"
+          status=0
+          report="$(run_cli check-manifest --json --min-algorithm sha384 "$temp_dir/weak.json")" || status=$?
+          test "$status" -eq 1
+          grep -Fq '"examples/hello.js": "below_minimum"' <<< "$report"
           sha256="$(run_cli generate examples/hello.js sha256)"
           sha512="$(run_cli generate examples/hello.js sha512)"
           combined="$(run_cli generate examples/hello.js sha256,sha512)"

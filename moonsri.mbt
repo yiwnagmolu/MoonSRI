@@ -115,13 +115,48 @@ pub fn parse_metadata(input : String) -> Array[Metadata] {
 /// Multiple digests of that strength are alternatives, as in SRI 1.0.
 pub fn verify_bytes(data : BytesView, input : String) -> Verdict {
   let items = parse_metadata(input)
-  guard items.get(0) is Some(first) else { return NoSupportedMetadata }
+  guard strongest_algorithm(items) is Some(strongest) else {
+    return NoSupportedMetadata
+  }
+  verify_strongest(data, items, strongest)
+}
+
+///|
+/// Verify with a minimum algorithm strength. Err contains the strongest
+/// advertised algorithm when it falls below the minimum.
+pub fn verify_bytes_at_least(
+  data : BytesView,
+  input : String,
+  minimum : Algorithm,
+) -> Result[Verdict, Algorithm] {
+  let items = parse_metadata(input)
+  guard strongest_algorithm(items) is Some(strongest) else {
+    return Ok(NoSupportedMetadata)
+  }
+  if strongest.strength() < minimum.strength() {
+    return Err(strongest)
+  }
+  Ok(verify_strongest(data, items, strongest))
+}
+
+///|
+fn strongest_algorithm(items : Array[Metadata]) -> Algorithm? {
+  guard items.get(0) is Some(first) else { return None }
   let mut strongest = first.algorithm
   for item in items {
     if item.algorithm.strength() > strongest.strength() {
       strongest = item.algorithm
     }
   }
+  Some(strongest)
+}
+
+///|
+fn verify_strongest(
+  data : BytesView,
+  items : Array[Metadata],
+  strongest : Algorithm,
+) -> Verdict {
   // The expected digest depends on the algorithm, not the number of candidates.
   let expected = encoded_digest(data, strongest)
   for item in items {

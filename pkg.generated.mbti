@@ -8,6 +8,8 @@ pub fn parse_metadata(String) -> Array[Metadata]
 
 pub fn verify_bytes(BytesView, String) -> Verdict
 
+pub fn verify_bytes_at_least(BytesView, String, Algorithm) -> Result[Verdict, Algorithm]
+
 // Errors
 
 // Types and methods

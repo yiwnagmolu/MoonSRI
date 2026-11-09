@@ -14,6 +14,28 @@ test "incremental hashing crosses block boundaries and supports snapshots" {
 }
 
 ///|
+test "minimum algorithm rejects otherwise matching weak metadata" {
+  let data = @utf8.encode("abc")
+  let weak = @moonsri.generate(data[:], Sha256)
+  let strong = @moonsri.generate(data[:], Sha512)
+  assert_true(
+    @moonsri.verify_bytes_at_least(data[:], weak, Sha384) is Err(Sha256),
+  )
+  assert_true(
+    @moonsri.verify_bytes_at_least(data[:], weak + " " + strong, Sha512)
+    is Ok(Match),
+  )
+  assert_true(
+    @moonsri.verify_bytes_at_least(data[:], weak + " sha512-invalid", Sha384)
+    is Ok(Mismatch),
+  )
+  assert_true(
+    @moonsri.verify_bytes_at_least(data[:], "sha999-invalid", Sha384)
+    is Ok(NoSupportedMetadata),
+  )
+}
+
+///|
 /// Known SHA-2 vectors for the exact bytes "abc".
 test "generates SHA-256, SHA-384 and SHA-512 SRI tokens" {
   let data = @utf8.encode("abc")

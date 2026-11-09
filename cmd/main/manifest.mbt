@@ -82,6 +82,7 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
 fn run_check_manifest(args : ArrayView[String]) -> Int32 {
   let mut json_output = false
   let mut root = None
+  let mut minimum = None
   let mut index = 0
   while index < args.length() {
     match args[index] {
@@ -94,7 +95,14 @@ fn run_check_manifest(args : ArrayView[String]) -> Int32 {
         root = Some(dir)
         index += 2
       }
-      "--json" | "--root" => {
+      "--min-algorithm" if minimum is None && index + 1 < args.length() => {
+        guard parse_minimum(args[index + 1]) is Some(algorithm) else {
+          return 2
+        }
+        minimum = Some(algorithm)
+        index += 2
+      }
+      "--json" | "--root" | "--min-algorithm" => {
         usage()
         return 2
       }
@@ -108,7 +116,7 @@ fn run_check_manifest(args : ArrayView[String]) -> Int32 {
     usage()
     return 2
   }
-  check_manifest(args[index], json_output, root)
+  check_manifest(args[index], json_output, root, minimum)
 }
 
 ///|
@@ -141,7 +149,12 @@ fn resolve_asset(root : String?, path : String) -> String? {
 }
 
 ///|
-fn check_manifest(path : String, json_output : Bool, root : String?) -> Int32 {
+fn check_manifest(
+  path : String,
+  json_output : Bool,
+  root : String?,
+  minimum : @sri.Algorithm?,
+) -> Int32 {
   guard read_manifest(path) is Some(assets) else { return 2 }
   let files : Array[(String, String, String)] = []
   for asset, integrity in assets {
@@ -152,7 +165,7 @@ fn check_manifest(path : String, json_output : Bool, root : String?) -> Int32 {
   let report : Map[String, Json] = Map([])
   for entry in files {
     let (asset, file, integrity) = entry
-    let (code, result, message) = check_manifest_asset(file, integrity)
+    let (code, result, message) = check_manifest_asset(file, integrity, minimum)
     if code > status {
       status = code
     }
@@ -250,14 +263,10 @@ fn run_diff_manifest(args : ArrayView[String]) -> Int32 {
 fn check_manifest_asset(
   asset : String,
   integrity : String,
+  minimum : @sri.Algorithm?,
 ) -> (Int32, String, String) {
   let bytes = @fs.read_file_to_bytes(asset) catch {
     _ => return (2, "read_error", "Cannot read file")
   }
-  match @sri.verify_bytes(bytes[:], integrity) {
-    @sri.Match => (0, "match", "match")
-    @sri.Mismatch => (1, "mismatch", "mismatch")
-    @sri.NoSupportedMetadata =>
-      (2, "no_supported_metadata", "no supported SRI metadata")
-  }
+  check_metadata(bytes[:], integrity, minimum)
 }
