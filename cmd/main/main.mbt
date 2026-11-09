@@ -1,11 +1,12 @@
 ///|
 fn usage() -> Unit {
-  println("Usage: moonsri generate <file> [sha256|sha384|sha512]")
+  println("Usage: moonsri generate <file> [algorithms]")
   println("       moonsri check <file> <integrity-metadata>")
+  println("       moonsri manifest [--algorithm algorithms] [--] <file>...")
+  println("       moonsri check-manifest [--json] [--] <manifest.json>")
   println(
-    "       moonsri manifest [--algorithm sha256|sha384|sha512] [--] <file>...",
+    "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",
   )
-  println("       moonsri check-manifest <manifest.json>")
 }
 
 ///|
@@ -27,6 +28,34 @@ fn parse_algorithm(name : String) -> @sri.Algorithm? {
 }
 
 ///|
+fn parse_algorithms(input : String) -> Array[@sri.Algorithm]? {
+  let algorithms = []
+  let names : Set[String] = Set([])
+  for part in input.split(",") {
+    let name = part.to_owned()
+    guard parse_algorithm(name) is Some(algorithm) else {
+      eprintln("Unknown algorithm: " + Json::string(name).stringify())
+      return None
+    }
+    if names.contains(name) {
+      eprintln("Duplicate algorithm: " + name)
+      return None
+    }
+    names.add(name)
+    algorithms.push(algorithm)
+  }
+  Some(algorithms)
+}
+
+///|
+fn generate_metadata(
+  data : BytesView,
+  algorithms : Array[@sri.Algorithm],
+) -> String {
+  algorithms.map(algorithm => @sri.generate(data, algorithm)).join(" ")
+}
+
+///|
 fn run(args : Array[String]) -> Int32 {
   // The JS runner includes `node` in argv; the Wasm runner does not.
   let command_index = if args.length() > 1 && is_command(args[1]) {
@@ -41,13 +70,7 @@ fn run(args : Array[String]) -> Int32 {
   let operands = args[command_index + 1:]
   match command {
     "manifest" => return generate_manifest(operands)
-    "check-manifest" =>
-      if operands.length() == 1 {
-        return check_manifest(operands[0])
-      } else {
-        usage()
-        return 2
-      }
+    "check-manifest" => return run_check_manifest(operands)
     _ => ()
   }
   if (command == "generate" && (operands.length() < 1 || operands.length() > 2)) ||
@@ -55,20 +78,11 @@ fn run(args : Array[String]) -> Int32 {
     usage()
     return 2
   }
-  let algorithm = if command == "generate" {
-    if operands.length() == 1 {
-      @sri.Sha384
-    } else {
-      match parse_algorithm(operands[1]) {
-        Some(algorithm) => algorithm
-        None => {
-          usage()
-          return 2
-        }
-      }
-    }
+  let algorithms = if command == "generate" && operands.length() == 2 {
+    guard parse_algorithms(operands[1]) is Some(selected) else { return 2 }
+    selected
   } else {
-    @sri.Sha384
+    [@sri.Sha384]
   }
   let path = operands[0]
   let data = @fs.read_file_to_bytes(path) catch {
@@ -78,7 +92,7 @@ fn run(args : Array[String]) -> Int32 {
     }
   }
   if command == "generate" {
-    println(@sri.generate(data[:], algorithm))
+    println(generate_metadata(data[:], algorithms))
     return 0
   }
   match @sri.verify_bytes(data[:], operands[1]) {
@@ -98,6 +112,18 @@ fn run(args : Array[String]) -> Int32 {
 }
 
 ///|
+/// Let Node finish writing piped reports before exiting.
+#cfg(target="js")
+extern "js" fn finish(code : Int32) -> Unit =
+  #| (code) => { process.exitCode = code; }
+
+///|
+#cfg(not(target="js"))
+fn finish(code : Int32) -> Unit {
+  @sys.exit(code)
+}
+
+///|
 fn main {
-  @sys.exit(run(@env.args()))
+  finish(run(@env.args()))
 }

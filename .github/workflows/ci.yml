@@ -37,7 +37,12 @@ jobs:
           asset="$temp_dir/copied style.css"
           manifest="$temp_dir/integrity.json"
           cp examples/style.css "$asset"
-          run_cli manifest --algorithm sha512 examples/hello.js "$asset" > "$manifest"
+          sha256="$(run_cli generate examples/hello.js sha256)"
+          sha512="$(run_cli generate examples/hello.js sha512)"
+          combined="$(run_cli generate examples/hello.js sha256,sha512)"
+          test "$combined" = "$sha256 $sha512"
+          run_cli manifest --algorithm sha256,sha512 examples/hello.js "$asset" > "$manifest"
+          node -e 'const manifest = require(process.argv[1]); if (manifest["examples/hello.js"] !== process.argv[2]) process.exit(1)' "./$manifest" "$combined"
           report="$(run_cli check-manifest "$manifest")"
           grep -Fq 'match: "examples/hello.js"' <<< "$report"
           grep -Fq "match: \"$asset\"" <<< "$report"
@@ -48,6 +53,11 @@ jobs:
           test "$status" -eq 1
           grep -Fq "mismatch: \"$asset\"" <<< "$report"
 
+          status=0
+          report="$(run_cli check-manifest --json "$manifest")" || status=$?
+          test "$status" -eq 1
+          node -e 'const report = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (report["examples/hello.js"] !== "match" || report[process.argv[1]] !== "mismatch") process.exit(1)' "$asset" <<< "$report"
+
           mv "$asset" "$temp_dir/moved.css"
           status=0
           run_cli check-manifest "$manifest" || status=$?
@@ -57,3 +67,18 @@ jobs:
           status=0
           run_cli check-manifest "$manifest" || status=$?
           test "$status" -eq 2
+
+          if [ "${{ matrix.target }}" = js ]; then
+            node - "$manifest" "$temp_dir" <<'JS'
+          const fs = require("node:fs");
+          const entries = Array.from({ length: 3000 }, (_, i) => [
+            process.argv[3] + "/missing-asset-" + i + ".css",
+            "sha384-invalid",
+          ]);
+          fs.writeFileSync(process.argv[2], JSON.stringify(Object.fromEntries(entries)));
+          JS
+            status=0
+            report="$(run_cli check-manifest --json "$manifest")" || status=$?
+            test "$status" -eq 2
+            node -e 'const results = Object.values(JSON.parse(require("node:fs").readFileSync(0, "utf8"))); if (results.length !== 3000 || results.some(result => result !== "read_error")) process.exit(1)' <<< "$report"
+          fi

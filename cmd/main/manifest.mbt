@@ -1,19 +1,14 @@
 ///|
 fn generate_manifest(args : ArrayView[String]) -> Int32 {
   let mut first_file = 0
-  let mut algorithm = @sri.Sha384
+  let mut algorithms = [@sri.Sha384]
   if args.length() > 0 && args[0] == "--algorithm" {
     if args.length() < 2 {
       usage()
       return 2
     }
-    match parse_algorithm(args[1]) {
-      Some(selected) => algorithm = selected
-      None => {
-        eprintln("Unknown algorithm: " + args[1])
-        return 2
-      }
-    }
+    guard parse_algorithms(args[1]) is Some(selected) else { return 2 }
+    algorithms = selected
     first_file = 2
   }
   if first_file < args.length() && args[first_file] == "--" {
@@ -40,7 +35,7 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
         return 2
       }
     }
-    manifest[path] = Json::string(@sri.generate(data[:], algorithm))
+    manifest[path] = Json::string(generate_metadata(data[:], algorithms))
   }
   println(Json::object(manifest).stringify(indent=2))
   0
@@ -52,7 +47,21 @@ fn valid_manifest_path(path : String) -> Bool {
 }
 
 ///|
-fn check_manifest(path : String) -> Int32 {
+fn run_check_manifest(args : ArrayView[String]) -> Int32 {
+  let json_output = args.length() > 0 && args[0] == "--json"
+  let mut index = if json_output { 1 } else { 0 }
+  if index < args.length() && args[index] == "--" {
+    index += 1
+  }
+  if args.length() != index + 1 {
+    usage()
+    return 2
+  }
+  check_manifest(args[index], json_output)
+}
+
+///|
+fn check_manifest(path : String, json_output : Bool) -> Int32 {
   let data = @fs.read_file_to_bytes(path) catch {
     _ => {
       eprintln("Cannot read manifest: " + path)
@@ -92,29 +101,42 @@ fn check_manifest(path : String) -> Int32 {
     assets.push((asset, integrity))
   }
   let mut status = 0
+  let report : Map[String, Json] = Map([])
   for entry in assets {
     let (asset, integrity) = entry
-    let quoted_asset = Json::string(asset).stringify()
-    let bytes = @fs.read_file_to_bytes(asset) catch {
-      _ => {
-        eprintln("Cannot read file: " + quoted_asset)
-        status = 2
-        continue
-      }
+    let (code, result, message) = check_manifest_asset(asset, integrity)
+    if code > status {
+      status = code
     }
-    match @sri.verify_bytes(bytes[:], integrity) {
-      @sri.Match => println("match: " + quoted_asset)
-      @sri.Mismatch => {
-        println("mismatch: " + quoted_asset)
-        if status == 0 {
-          status = 1
-        }
-      }
-      @sri.NoSupportedMetadata => {
-        eprintln("no supported SRI metadata: " + quoted_asset)
-        status = 2
+    if json_output {
+      report[asset] = Json::string(result)
+    } else {
+      let line = message + ": " + Json::string(asset).stringify()
+      if code == 2 {
+        eprintln(line)
+      } else {
+        println(line)
       }
     }
   }
+  if json_output {
+    println(Json::object(report).stringify(indent=2))
+  }
   status
+}
+
+///|
+fn check_manifest_asset(
+  asset : String,
+  integrity : String,
+) -> (Int32, String, String) {
+  let bytes = @fs.read_file_to_bytes(asset) catch {
+    _ => return (2, "read_error", "Cannot read file")
+  }
+  match @sri.verify_bytes(bytes[:], integrity) {
+    @sri.Match => (0, "match", "match")
+    @sri.Mismatch => (1, "mismatch", "mismatch")
+    @sri.NoSupportedMetadata =>
+      (2, "no_supported_metadata", "no supported SRI metadata")
+  }
 }

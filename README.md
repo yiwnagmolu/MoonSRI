@@ -40,6 +40,8 @@ moon run cmd/main --target wasm -- check examples/hello.js 'sha384-uY+OtEjszwPe7
 moon run cmd/main --target wasm -- generate examples/hello.js sha512
 ```
 
+也可以用逗号分隔算法，例如 `sha256,sha512`。输出会按指定顺序排列，多个摘要之间用空格分隔，可以一起填入同一个 `integrity` 属性。
+
 在 Windows PowerShell 中，把示例里的单引号保留即可。也可用 `--target js` 运行，需有 Node.js。
 
 ## 批量生成与校验
@@ -53,9 +55,17 @@ moon run cmd/main --target wasm -- check-manifest integrity.json
 
 在 Windows PowerShell 中，可以用 `| Set-Content -Encoding utf8 integrity.json` 替换第一条命令末尾的 `> integrity.json`。
 
-清单是一个 UTF-8 JSON 对象，键是文件路径，值是 SRI 字符串。相对路径以**运行命令时的工作目录**为准。路径含空格时请加引号。默认算法是 SHA-384，可以在文件列表前加 `--algorithm sha256` 或 `--algorithm sha512`。文件名与选项同名时，在文件列表前加 `--`。
+清单是一个 UTF-8 JSON 对象，键是文件路径，值是 SRI 字符串。相对路径以**运行命令时的工作目录**为准。路径含空格时请加引号。默认算法是 SHA-384，可以在文件列表前加 `--algorithm sha512` 或 `--algorithm sha256,sha512`。文件名与选项同名时，在文件列表前加 `--`。
 
 `check-manifest` 会报告各文件的结果。退出码 `0` 表示全部匹配，`1` 表示至少有一份摘要不匹配，`2` 表示清单无效、文件无法读取或元数据没有受支持的算法。若同时出现摘要不匹配和读取等错误，优先返回 `2`。请使用可信来源的清单，因为工具会按其中的路径读取本地文件。
+
+脚本可以用 `--json` 获取结构化结果：
+
+```sh
+moon run cmd/main --target wasm -- check-manifest --json integrity.json
+```
+
+标准输出是一个 JSON 对象，键为清单中的文件路径，值为 `match`、`mismatch`、`read_error` 或 `no_supported_metadata`。清单有效时，即使有文件校验失败也会输出完整报告，退出码规则与默认模式相同。清单本身无法读取或解析时，诊断写入标准错误。
 
 ## MoonBit 库
 
