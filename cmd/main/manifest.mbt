@@ -3,6 +3,7 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
   let mut first_file = 0
   let mut algorithms = None
   let mut root = None
+  let mut list_path = None
   while first_file < args.length() {
     match args[first_file] {
       "--algorithm" if algorithms is None && first_file + 1 < args.length() => {
@@ -15,7 +16,9 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
         guard parse_root(args[first_file + 1]) is Some(dir) else { return 2 }
         root = Some(dir)
       }
-      "--algorithm" | "--root" => {
+      "--from" if list_path is None && first_file + 1 < args.length() =>
+        list_path = Some(args[first_file + 1])
+      "--algorithm" | "--root" | "--from" => {
         usage()
         return 2
       }
@@ -26,13 +29,27 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
   if first_file < args.length() && args[first_file] == "--" {
     first_file += 1
   }
-  if first_file == args.length() {
+  let paths = []
+  if list_path is Some(path) {
+    guard read_utf8_file(path, "asset list") is Some(source) else { return 2 }
+    for line in source.split("\n") {
+      let path = line.strip_suffix("\r").unwrap_or(line)
+      if !path.is_empty() {
+        paths.push(path.to_owned())
+      }
+    }
+  }
+  for path in args[first_file:] {
+    paths.push(path)
+  }
+  if paths.is_empty() {
+    eprintln("Manifest generation requires at least one asset path")
     usage()
     return 2
   }
   let algorithms = algorithms.unwrap_or([@sri.Sha384])
   let manifest : Map[String, String] = Map([])
-  for path in args[first_file:] {
+  for path in paths {
     let quoted_path = Json::string(path).stringify()
     if !@manifest.is_asset_path(path) {
       eprintln("Invalid asset path: " + quoted_path)
@@ -157,19 +174,26 @@ fn check_manifest(path : String, json_output : Bool, root : String?) -> Int32 {
 }
 
 ///|
-fn read_manifest(path : String) -> Map[String, String]? {
+fn read_utf8_file(path : String, description : String) -> String? {
+  let quoted_path = Json::string(path).stringify()
   let data = @fs.read_file_to_bytes(path) catch {
     _ => {
-      eprintln("Cannot read manifest: " + path)
+      eprintln("Cannot read " + description + ": " + quoted_path)
       return None
     }
   }
   let source = @utf8.decode(data[:], ignore_bom=true) catch {
     _ => {
-      eprintln("Manifest must be UTF-8")
+      eprintln("Expected UTF-8 " + description + ": " + quoted_path)
       return None
     }
   }
+  Some(source)
+}
+
+///|
+fn read_manifest(path : String) -> Map[String, String]? {
+  guard read_utf8_file(path, "manifest") is Some(source) else { return None }
   let assets = @manifest.parse(source) catch {
     error => {
       eprintln(error.message())

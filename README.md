@@ -76,6 +76,14 @@ moon run cmd/main --target wasm -- check-manifest --root staging integrity.json
 
 清单键仍是 `assets/app.js`。使用 `--root` 时，资源路径必须是以 `/` 分隔的相对路径，路径段不能以点或空格结尾。指定的根目录用于拼接路径，操作系统仍会按正常规则解析符号链接。
 
+### 从文件列表生成清单
+
+构建系统可以把资源路径写入 UTF-8 文件，每行一个路径。路径里的空格会保留，空行会跳过，支持 LF、CRLF 和 UTF-8 BOM。`--from` 可以与 `--root` 和命令行上的额外路径同时使用。
+
+```sh
+moon run cmd/main --target wasm -- manifest --root dist --from assets.txt > integrity.json
+```
+
 ### 比较发布清单
 
 ```sh

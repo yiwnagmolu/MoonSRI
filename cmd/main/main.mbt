@@ -3,7 +3,7 @@ fn usage() -> Unit {
   println("Usage: moonsri generate <file> [algorithms]")
   println("       moonsri check <file> <integrity-metadata>")
   println(
-    "       moonsri manifest [--algorithm algorithms] [--root dir] [--] <file>...",
+    "       moonsri manifest [--algorithm algorithms] [--root dir] [--from files.txt] [--] [file...]",
   )
   println(
     "       moonsri check-manifest [--json] [--root dir] [--] <manifest.json>",
