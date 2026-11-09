@@ -1,0 +1,33 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "yiwnagmolu/moonsri"
+
+// Values
+pub fn generate(BytesView, Algorithm) -> String
+
+pub fn parse_metadata(String) -> Array[Metadata]
+
+pub fn verify_bytes(BytesView, String) -> Verdict
+
+// Errors
+
+// Types and methods
+pub(all) enum Algorithm {
+  Sha256
+  Sha384
+  Sha512
+}
+
+pub(all) struct Metadata {
+  algorithm : Algorithm
+  digest : String
+}
+
+pub(all) enum Verdict {
+  Match
+  Mismatch
+  NoSupportedMetadata
+}
+
+// Type aliases
+
+// Traits

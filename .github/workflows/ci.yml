@@ -1,0 +1,27 @@
+name: CI
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [wasm, js]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Check
+        run: moon check --target ${{ matrix.target }}
+      - name: Test
+        run: moon test --target ${{ matrix.target }}
+      - name: CLI smoke test
+        shell: bash
+        run: |
+          expected='sha384-uY+OtEjszwPe7jcYKI1KfAGMrLSMeFfhJc/DWf9ccFpWjjw1tKO9St/U0k2N8ONW'
+          actual="$(moon run cmd/main --target ${{ matrix.target }} -- generate examples/hello.js)"
+          test "$actual" = "$expected"
+          moon run cmd/main --target ${{ matrix.target }} -- check examples/hello.js "$expected"

@@ -1,0 +1,8 @@
+import {
+  "yiwnagmolu/moonsri" @sri,
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+}
+
+pkgtype(kind: "executable")
