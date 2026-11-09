@@ -18,10 +18,10 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
     usage()
     return 2
   }
-  let manifest : Map[String, Json] = Map([])
+  let manifest : Map[String, String] = Map([])
   for path in args[first_file:] {
     let quoted_path = Json::string(path).stringify()
-    if !valid_manifest_path(path) {
+    if !@manifest.is_asset_path(path) {
       eprintln("Invalid asset path: " + quoted_path)
       return 2
     }
@@ -35,15 +35,16 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
         return 2
       }
     }
-    manifest[path] = Json::string(generate_metadata(data[:], algorithms))
+    manifest[path] = generate_metadata(data[:], algorithms)
   }
-  println(Json::object(manifest).stringify(indent=2))
+  let output = @manifest.encode(manifest) catch {
+    error => {
+      eprintln(error.message())
+      return 2
+    }
+  }
+  println(output)
   0
-}
-
-///|
-fn valid_manifest_path(path : String) -> Bool {
-  !path.is_empty() && !path.contains_char('\u{0000}')
 }
 
 ///|
@@ -62,48 +63,10 @@ fn run_check_manifest(args : ArrayView[String]) -> Int32 {
 
 ///|
 fn check_manifest(path : String, json_output : Bool) -> Int32 {
-  let data = @fs.read_file_to_bytes(path) catch {
-    _ => {
-      eprintln("Cannot read manifest: " + path)
-      return 2
-    }
-  }
-  let source = @utf8.decode(data[:], ignore_bom=true) catch {
-    _ => {
-      eprintln("Manifest must be UTF-8")
-      return 2
-    }
-  }
-  let parsed = @json.parse(source, reject_duplicate_keys=true) catch {
-    error => {
-      eprintln("Invalid manifest JSON: " + error.to_string())
-      return 2
-    }
-  }
-  let manifest = match parsed {
-    Object(entries) if !entries.is_empty() => entries
-    _ => {
-      eprintln("Manifest must be a non-empty JSON object")
-      return 2
-    }
-  }
-  let assets : Array[(String, String)] = []
-  for asset, value in manifest {
-    let quoted_asset = Json::string(asset).stringify()
-    guard valid_manifest_path(asset) else {
-      eprintln("Invalid asset path: " + quoted_asset)
-      return 2
-    }
-    guard value is String(integrity) else {
-      eprintln("Expected a string for asset: " + quoted_asset)
-      return 2
-    }
-    assets.push((asset, integrity))
-  }
+  guard read_manifest(path) is Some(assets) else { return 2 }
   let mut status = 0
   let report : Map[String, Json] = Map([])
-  for entry in assets {
-    let (asset, integrity) = entry
+  for asset, integrity in assets {
     let (code, result, message) = check_manifest_asset(asset, integrity)
     if code > status {
       status = code
@@ -123,6 +86,29 @@ fn check_manifest(path : String, json_output : Bool) -> Int32 {
     println(Json::object(report).stringify(indent=2))
   }
   status
+}
+
+///|
+fn read_manifest(path : String) -> Map[String, String]? {
+  let data = @fs.read_file_to_bytes(path) catch {
+    _ => {
+      eprintln("Cannot read manifest: " + path)
+      return None
+    }
+  }
+  let source = @utf8.decode(data[:], ignore_bom=true) catch {
+    _ => {
+      eprintln("Manifest must be UTF-8")
+      return None
+    }
+  }
+  let assets = @manifest.parse(source) catch {
+    error => {
+      eprintln(error.message())
+      return None
+    }
+  }
+  Some(assets)
 }
 
 ///|

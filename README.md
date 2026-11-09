@@ -79,6 +79,8 @@ moon run cmd/main --target wasm -- check-manifest --json integrity.json
 
 如果应用分块读取资源，可以用 `Hasher::new(algorithm)` 创建增量计算器，按顺序调用 `update(chunk)`，最后用 `metadata()` 取得 SRI 字符串。中途读取摘要不会改变计算状态，调用 `reset()` 可用同一种算法开始计算下一个资源。
 
+子包 `yiwnagmolu/moonsri/manifest` 提供 `parse` 和 `encode`。它负责检查 JSON 清单结构，返回路径到 SRI 字符串的映射，适合接入构建工具或自行决定如何读取资源。
+
 ## 范围与行为
 
 - 依据 [W3C SRI 规范](https://www.w3.org/TR/sri/)处理算法优先级、多个摘要和保留的 `?options` 部分；目前没有已定义的 SRI 选项。

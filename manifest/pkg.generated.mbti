@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "yiwnagmolu/moonsri/manifest"
+
+// Values
+pub fn encode(Map[String, String]) -> String raise ManifestError
+
+pub fn is_asset_path(String) -> Bool
+
+pub fn parse(String) -> Map[String, String] raise ManifestError
+
+// Errors
+pub(all) suberror ManifestError {
+  InvalidJson(String)
+  EmptyOrNonObject
+  InvalidPath(String)
+  ExpectedString(String)
+}
+pub fn ManifestError::message(Self) -> String
+
+// Types and methods
+
+// Type aliases
+
+// Traits

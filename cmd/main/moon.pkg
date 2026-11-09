@@ -1,7 +1,7 @@
 import {
   "yiwnagmolu/moonsri" @sri,
+  "yiwnagmolu/moonsri/manifest",
   "moonbitlang/core/env",
-  "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
