@@ -44,13 +44,18 @@ fn Algorithm::strength(self : Algorithm) -> Int32 {
 ///|
 /// Generate one SRI metadata token for exact resource bytes.
 pub fn generate(data : BytesView, algorithm : Algorithm) -> String {
+  algorithm.label() + "-" + encoded_digest(data, algorithm)
+}
+
+///|
+fn encoded_digest(data : BytesView, algorithm : Algorithm) -> String {
   let kind = match algorithm {
     Sha256 => @sha2.Sha256
     Sha384 => @sha2.Sha384
     Sha512 => @sha2.Sha512
   }
   let digest = @sha2.hash(data, kind~)
-  algorithm.label() + "-" + @base64.encode(digest[:])
+  @base64.encode(digest[:])
 }
 
 ///|
@@ -106,21 +111,19 @@ pub fn parse_metadata(input : String) -> Array[Metadata] {
 /// Multiple digests of that strength are alternatives, as in SRI 1.0.
 pub fn verify_bytes(data : BytesView, input : String) -> Verdict {
   let items = parse_metadata(input)
-  if items.is_empty() {
-    return NoSupportedMetadata
-  }
-  let mut strongest = 0
+  guard items.get(0) is Some(first) else { return NoSupportedMetadata }
+  let mut strongest = first.algorithm
   for item in items {
-    if item.algorithm.strength() > strongest {
-      strongest = item.algorithm.strength()
+    if item.algorithm.strength() > strongest.strength() {
+      strongest = item.algorithm
     }
   }
+  // The expected digest depends on the algorithm, not the number of candidates.
+  let expected = encoded_digest(data, strongest)
   for item in items {
-    if item.algorithm.strength() == strongest {
-      let expected = generate(data, item.algorithm)
-      if expected == item.algorithm.label() + "-" + item.digest {
-        return Match
-      }
+    if item.algorithm.strength() == strongest.strength() &&
+      expected == item.digest {
+      return Match
     }
   }
   Mismatch
