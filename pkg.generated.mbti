@@ -17,6 +17,12 @@ pub(all) enum Algorithm {
   Sha512
 }
 
+type Hasher
+pub fn Hasher::metadata(Self) -> String
+pub fn Hasher::new(Algorithm) -> Self
+pub fn Hasher::reset(Self) -> Unit
+pub fn Hasher::update(Self, BytesView) -> Unit
+
 pub(all) struct Metadata {
   algorithm : Algorithm
   digest : String

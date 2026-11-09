@@ -77,6 +77,8 @@ moon run cmd/main --target wasm -- check-manifest --json integrity.json
 
 `Algorithm` 包含 `Sha256`、`Sha384`、`Sha512`；`Verdict` 包含 `Match`、`Mismatch`、`NoSupportedMetadata`。
 
+如果应用分块读取资源，可以用 `Hasher::new(algorithm)` 创建增量计算器，按顺序调用 `update(chunk)`，最后用 `metadata()` 取得 SRI 字符串。中途读取摘要不会改变计算状态，调用 `reset()` 可用同一种算法开始计算下一个资源。
+
 ## 范围与行为
 
 - 依据 [W3C SRI 规范](https://www.w3.org/TR/sri/)处理算法优先级、多个摘要和保留的 `?options` 部分；目前没有已定义的 SRI 选项。

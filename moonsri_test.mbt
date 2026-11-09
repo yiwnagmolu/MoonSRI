@@ -1,4 +1,19 @@
 ///|
+test "incremental hashing crosses block boundaries and supports snapshots" {
+  let data = @utf8.encode("abc".repeat(100))
+  for algorithm in [@moonsri.Sha256, @moonsri.Sha384, @moonsri.Sha512] {
+    let hasher = @moonsri.Hasher::new(algorithm)
+    hasher.update(data[:63])
+    assert_eq(hasher.metadata(), @moonsri.generate(data[:63], algorithm))
+    hasher.update(data[63:128])
+    hasher.update(data[128:])
+    assert_eq(hasher.metadata(), @moonsri.generate(data[:], algorithm))
+    hasher.reset()
+    assert_eq(hasher.metadata(), @moonsri.generate(data[:0], algorithm))
+  }
+}
+
+///|
 /// Known SHA-2 vectors for the exact bytes "abc".
 test "generates SHA-256, SHA-384 and SHA-512 SRI tokens" {
   let data = @utf8.encode("abc")

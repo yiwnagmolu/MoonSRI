@@ -49,13 +49,17 @@ pub fn generate(data : BytesView, algorithm : Algorithm) -> String {
 
 ///|
 fn encoded_digest(data : BytesView, algorithm : Algorithm) -> String {
-  let kind = match algorithm {
+  let digest = @sha2.hash(data, kind=algorithm.kind())
+  @base64.encode(digest[:])
+}
+
+///|
+fn Algorithm::kind(self : Algorithm) -> @sha2.Kind {
+  match self {
     Sha256 => @sha2.Sha256
     Sha384 => @sha2.Sha384
     Sha512 => @sha2.Sha512
   }
-  let digest = @sha2.hash(data, kind~)
-  @base64.encode(digest[:])
 }
 
 ///|
