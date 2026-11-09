@@ -2,8 +2,12 @@
 fn usage() -> Unit {
   println("Usage: moonsri generate <file> [algorithms]")
   println("       moonsri check <file> <integrity-metadata>")
-  println("       moonsri manifest [--algorithm algorithms] [--] <file>...")
-  println("       moonsri check-manifest [--json] [--] <manifest.json>")
+  println(
+    "       moonsri manifest [--algorithm algorithms] [--root dir] [--] <file>...",
+  )
+  println(
+    "       moonsri check-manifest [--json] [--root dir] [--] <manifest.json>",
+  )
   println(
     "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",
   )

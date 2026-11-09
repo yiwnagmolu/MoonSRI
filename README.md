@@ -67,6 +67,15 @@ moon run cmd/main --target wasm -- check-manifest --json integrity.json
 
 标准输出是一个 JSON 对象，键为清单中的文件路径，值为 `match`、`mismatch`、`read_error` 或 `no_supported_metadata`。清单有效时，即使有文件校验失败也会输出完整报告，退出码规则与默认模式相同。清单本身无法读取或解析时，诊断写入标准错误。
 
+生成和校验都支持 `--root`。例如从 `dist` 生成清单，在发布目录 `staging` 校验同一份清单：
+
+```sh
+moon run cmd/main --target wasm -- manifest --root dist assets/app.js > integrity.json
+moon run cmd/main --target wasm -- check-manifest --root staging integrity.json
+```
+
+清单键仍是 `assets/app.js`。使用 `--root` 时，资源路径必须是以 `/` 分隔的相对路径，路径段不能以点或空格结尾。指定的根目录用于拼接路径，操作系统仍会按正常规则解析符号链接。
+
 ## MoonBit 库
 
 根包公开以下接口：
