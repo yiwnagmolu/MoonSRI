@@ -76,6 +76,14 @@ moon run cmd/main --target wasm -- check-manifest --root staging integrity.json
 
 清单键仍是 `assets/app.js`。使用 `--root` 时，资源路径必须是以 `/` 分隔的相对路径，路径段不能以点或空格结尾。指定的根目录用于拼接路径，操作系统仍会按正常规则解析符号链接。
 
+### 比较发布清单
+
+```sh
+moon run cmd/main --target wasm -- diff-manifest previous.json integrity.json
+```
+
+按路径列出新增、删除和摘要变化的资源。比较直接使用清单中保存的字符串，例如调整算法顺序也会显示为变化。两个清单相同则返回 `0`，有变化返回 `1`，清单读取或解析失败返回 `2`。
+
 ## MoonBit 库
 
 根包公开以下接口：

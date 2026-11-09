@@ -8,6 +8,7 @@ fn usage() -> Unit {
   println(
     "       moonsri check-manifest [--json] [--root dir] [--] <manifest.json>",
   )
+  println("       moonsri diff-manifest <before.json> <after.json>")
   println(
     "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",
   )
@@ -16,7 +17,8 @@ fn usage() -> Unit {
 ///|
 fn is_command(arg : String) -> Bool {
   match arg {
-    "generate" | "check" | "manifest" | "check-manifest" => true
+    "generate" | "check" | "manifest" | "check-manifest" | "diff-manifest" =>
+      true
     _ => false
   }
 }
@@ -75,6 +77,7 @@ fn run(args : Array[String]) -> Int32 {
   match command {
     "manifest" => return generate_manifest(operands)
     "check-manifest" => return run_check_manifest(operands)
+    "diff-manifest" => return run_diff_manifest(operands)
     _ => ()
   }
   if (command == "generate" && (operands.length() < 1 || operands.length() > 2)) ||

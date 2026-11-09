@@ -180,6 +180,49 @@ fn read_manifest(path : String) -> Map[String, String]? {
 }
 
 ///|
+fn run_diff_manifest(args : ArrayView[String]) -> Int32 {
+  guard args.length() == 2 else {
+    usage()
+    return 2
+  }
+  guard read_manifest(args[0]) is Some(before) else { return 2 }
+  guard read_manifest(args[1]) is Some(after) else { return 2 }
+  let changes = @manifest.diff(before, after)
+  for change in changes {
+    match change {
+      @manifest.Added(path, value) =>
+        println(
+          "added: " +
+          Json::string(path).stringify() +
+          " " +
+          Json::string(value).stringify(),
+        )
+      @manifest.Removed(path, value) =>
+        println(
+          "removed: " +
+          Json::string(path).stringify() +
+          " " +
+          Json::string(value).stringify(),
+        )
+      @manifest.Changed(path, old, current) =>
+        println(
+          "changed: " +
+          Json::string(path).stringify() +
+          " " +
+          Json::string(old).stringify() +
+          " -> " +
+          Json::string(current).stringify(),
+        )
+    }
+  }
+  if changes.is_empty() {
+    0
+  } else {
+    1
+  }
+}
+
+///|
 fn check_manifest_asset(
   asset : String,
   integrity : String,

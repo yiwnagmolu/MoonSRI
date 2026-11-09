@@ -36,6 +36,13 @@ jobs:
           temp_dir="$(mktemp -d .moonsri-test.XXXXXX)"
           run_cli manifest --root examples hello.js > "$temp_dir/rooted.json"
           test "$(run_cli check-manifest --root examples "$temp_dir/rooted.json")" = 'match: "hello.js"'
+          run_cli diff-manifest "$temp_dir/rooted.json" "$temp_dir/rooted.json"
+          printf '%s\n' '{"style.css":"sha384-new","hello.js":"sha384-updated"}' > "$temp_dir/next.json"
+          status=0
+          report="$(run_cli diff-manifest "$temp_dir/rooted.json" "$temp_dir/next.json")" || status=$?
+          test "$status" -eq 1
+          grep -Fq 'changed: "hello.js"' <<< "$report"
+          grep -Fq 'added: "style.css"' <<< "$report"
           status=0
           run_cli manifest --root examples ../README.md || status=$?
           test "$status" -eq 2
