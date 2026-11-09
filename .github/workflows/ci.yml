@@ -27,3 +27,33 @@ jobs:
           actual="$(moon run cmd/main --target ${{ matrix.target }} -- generate examples/hello.js)"
           test "$actual" = "$expected"
           moon run cmd/main --target ${{ matrix.target }} -- check examples/hello.js "$expected"
+      - name: Batch manifest smoke test
+        shell: bash
+        run: |
+          run_cli() {
+            moon run cmd/main --target ${{ matrix.target }} -- "$@"
+          }
+          temp_dir="$(mktemp -d .moonsri-test.XXXXXX)"
+          asset="$temp_dir/copied style.css"
+          manifest="$temp_dir/integrity.json"
+          cp examples/style.css "$asset"
+          run_cli manifest --algorithm sha512 examples/hello.js "$asset" > "$manifest"
+          report="$(run_cli check-manifest "$manifest")"
+          grep -Fq 'match: "examples/hello.js"' <<< "$report"
+          grep -Fq "match: \"$asset\"" <<< "$report"
+
+          printf '\n/* changed */\n' >> "$asset"
+          status=0
+          report="$(run_cli check-manifest "$manifest")" || status=$?
+          test "$status" -eq 1
+          grep -Fq "mismatch: \"$asset\"" <<< "$report"
+
+          mv "$asset" "$temp_dir/moved.css"
+          status=0
+          run_cli check-manifest "$manifest" || status=$?
+          test "$status" -eq 2
+
+          printf '{"examples/hello.js":"sha256-a","examples/hello.js":"sha256-b"}\n' > "$manifest"
+          status=0
+          run_cli check-manifest "$manifest" || status=$?
+          test "$status" -eq 2

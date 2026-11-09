@@ -42,6 +42,21 @@ moon run cmd/main --target wasm -- generate examples/hello.js sha512
 
 在 Windows PowerShell 中，把示例里的单引号保留即可。也可用 `--target js` 运行，需有 Node.js。
 
+## 批量生成与校验
+
+在项目根目录列出要发布的资源，生成一份 JSON 清单：
+
+```sh
+moon run cmd/main --target wasm -- manifest examples/hello.js examples/style.css > integrity.json
+moon run cmd/main --target wasm -- check-manifest integrity.json
+```
+
+在 Windows PowerShell 中，可以用 `| Set-Content -Encoding utf8 integrity.json` 替换第一条命令末尾的 `> integrity.json`。
+
+清单是一个 UTF-8 JSON 对象，键是文件路径，值是 SRI 字符串。相对路径以**运行命令时的工作目录**为准。路径含空格时请加引号。默认算法是 SHA-384，可以在文件列表前加 `--algorithm sha256` 或 `--algorithm sha512`。文件名与选项同名时，在文件列表前加 `--`。
+
+`check-manifest` 会报告各文件的结果。退出码 `0` 表示全部匹配，`1` 表示至少有一份摘要不匹配，`2` 表示清单无效、文件无法读取或元数据没有受支持的算法。若同时出现摘要不匹配和读取等错误，优先返回 `2`。请使用可信来源的清单，因为工具会按其中的路径读取本地文件。
+
 ## MoonBit 库
 
 根包公开以下接口：
