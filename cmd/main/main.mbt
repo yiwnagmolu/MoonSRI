@@ -69,17 +69,21 @@ fn generate_metadata(
 }
 
 ///|
+// Node includes the executable and script path. Moon's other hosts pass one
+// executable prefix.
+#cfg(target="js")
+let command_index : Int32 = 2
+
+///|
+#cfg(not(target="js"))
+let command_index : Int32 = 1
+
+///|
 fn run(args : Array[String]) -> Int32 {
-  // The JS runner includes `node` in argv; the Wasm runner does not.
-  let command_index = if args.length() > 1 && is_command(args[1]) {
-    1
-  } else if args.length() > 2 && is_command(args[2]) {
-    2
-  } else {
+  guard args.get(command_index) is Some(command) && is_command(command) else {
     usage()
     return 2
   }
-  let command = args[command_index]
   let operands = args[command_index + 1:]
   match command {
     "tag" => return run_tag(operands)
@@ -165,7 +169,7 @@ extern "js" fn finish(code : Int32) -> Unit =
 ///|
 #cfg(not(target="js"))
 fn finish(code : Int32) -> Unit {
-  @sys.exit(code)
+  @env.exit(code)
 }
 
 ///|

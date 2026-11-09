@@ -69,16 +69,28 @@ fn is_metadata_space(ch : Char) -> Bool {
 
 ///|
 fn parse_token(token : String) -> Metadata? {
-  // SRI 1.0 defines no options. Preserve the hash expression before '?'.
-  let expression = token.split("?").to_array()[0]
-  let parts = expression.split("-").to_array()
-  let algorithm = match parts[0].to_lower() {
-    "sha256" => Sha256
-    "sha384" => Sha384
-    "sha512" => Sha512
-    _ => return None
+  // SRI reads the expression before '?' and the digest in its second field.
+  let expression = match token.split_once("?") {
+    Some((expression, _)) => expression
+    None => token[:]
   }
-  let digest = if parts.length() > 1 { parts[1].to_owned() } else { "" }
+  let (label, tail) = match expression.split_once("-") {
+    Some(parts) => parts
+    None => (expression, ""[:])
+  }
+  let algorithm = if label.compare_ignore_ascii_case("sha256") == 0 {
+    Sha256
+  } else if label.compare_ignore_ascii_case("sha384") == 0 {
+    Sha384
+  } else if label.compare_ignore_ascii_case("sha512") == 0 {
+    Sha512
+  } else {
+    return None
+  }
+  let digest = match tail.split_once("-") {
+    Some((digest, _)) => digest.to_owned()
+    None => tail.to_owned()
+  }
   Some({ algorithm, digest, })
 }
 

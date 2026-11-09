@@ -110,6 +110,18 @@ test "recognized invalid digest does not fall back" {
 }
 
 ///|
+test "parses only the digest field before trailing fields and options" {
+  let parsed = @moonsri.parse_metadata(
+    "sHa384-Digest-extra-fields?foo=a-b?bar=c sha512?foo=abc-def",
+  )
+  assert_eq(parsed.length(), 2)
+  assert_true(parsed[0].algorithm is Sha384)
+  assert_eq(parsed[0].digest, "Digest")
+  assert_true(parsed[1].algorithm is Sha512)
+  assert_eq(parsed[1].digest, "")
+}
+
+///|
 /// SRI token matching is case-sensitive for the digest, not the algorithm name.
 test "parses whitespace, unknown algorithms and options" {
   let data = @utf8.encode("abc")

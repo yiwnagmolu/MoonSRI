@@ -27,6 +27,10 @@ jobs:
           actual="$(moon run cmd/main --target ${{ matrix.target }} -- generate examples/hello.js)"
           test "$actual" = "$expected"
           moon run cmd/main --target ${{ matrix.target }} -- check examples/hello.js "$expected"
+          status=0
+          rejected="$(moon run cmd/main --target ${{ matrix.target }} -- typo generate examples/hello.js)" || status=$?
+          test "$status" -eq 2
+          [[ "$rejected" == 'Usage:'* ]]
       - name: HTML tag smoke test
         shell: bash
         run: |
