@@ -27,6 +27,23 @@ jobs:
           actual="$(moon run cmd/main --target ${{ matrix.target }} -- generate examples/hello.js)"
           test "$actual" = "$expected"
           moon run cmd/main --target ${{ matrix.target }} -- check examples/hello.js "$expected"
+      - name: HTML tag smoke test
+        shell: bash
+        run: |
+          run_cli() {
+            moon run cmd/main --target ${{ matrix.target }} -- "$@"
+          }
+          script="$(run_cli tag script examples/hello.js hello.js)"
+          stylesheet="$(run_cli tag stylesheet examples/style.css style.css)"
+          demo="$(< examples/browser.html)"
+          [[ "$demo" == *"$script"* ]]
+          [[ "$demo" == *"$stylesheet"* ]]
+          escaped="$(run_cli tag script examples/hello.js 'hello.js?q="a"&lang=zh')"
+          [[ "$escaped" == *'src="hello.js?q=&quot;a&quot;&amp;lang=zh"'* ]]
+          status=0
+          unsafe="$(run_cli tag script examples/hello.js 'javascript:alert(1)')" || status=$?
+          test "$status" -eq 2
+          test -z "$unsafe"
       - name: Batch manifest smoke test
         shell: bash
         run: |

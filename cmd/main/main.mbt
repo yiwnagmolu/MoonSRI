@@ -1,6 +1,7 @@
 ///|
 fn usage() -> Unit {
   println("Usage: moonsri generate <file> [algorithms]")
+  println("       moonsri tag <script|stylesheet> <file> <url> [algorithms]")
   println(
     "       moonsri check <file> <integrity-metadata> [--min-algorithm algorithm]",
   )
@@ -19,8 +20,12 @@ fn usage() -> Unit {
 ///|
 fn is_command(arg : String) -> Bool {
   match arg {
-    "generate" | "check" | "manifest" | "check-manifest" | "diff-manifest" =>
-      true
+    "generate"
+    | "tag"
+    | "check"
+    | "manifest"
+    | "check-manifest"
+    | "diff-manifest" => true
     _ => false
   }
 }
@@ -77,6 +82,7 @@ fn run(args : Array[String]) -> Int32 {
   let command = args[command_index]
   let operands = args[command_index + 1:]
   match command {
+    "tag" => return run_tag(operands)
     "manifest" => return generate_manifest(operands)
     "check-manifest" => return run_check_manifest(operands)
     "diff-manifest" => return run_diff_manifest(operands)

@@ -44,6 +44,17 @@ moon run cmd/main --target wasm -- generate examples/hello.js sha512
 
 在 Windows PowerShell 中，把示例里的单引号保留即可。也可用 `--target js` 运行，需有 Node.js。
 
+## 生成 HTML 标签
+
+`tag` 从本地文件计算摘要，并生成可复制到页面的 `script` 或 `link` 标签。第三个参数是浏览器加载资源时使用的 URL，可以是相对路径或 HTTP(S) 地址。标签默认包含 `crossorigin="anonymous"`。跨源资源的服务器需要允许页面通过 CORS 读取响应。参见 [W3C SRI 规范](https://www.w3.org/TR/sri/#verification-of-html-document-subresources)。
+
+```sh
+moon run cmd/main --target wasm -- tag script examples/hello.js '/assets/hello.js?v=1&lang=zh' sha384
+moon run cmd/main --target wasm -- tag stylesheet examples/style.css /assets/style.css
+```
+
+运行 `python -m http.server 8765 --bind 127.0.0.1` 后打开 [浏览器示例](http://127.0.0.1:8765/examples/browser.html)。页面会显示匹配摘要的脚本成功执行，另一条故意填错的摘要会触发加载错误。控制台可以看到浏览器给出的 SRI 错误。
+
 ## 批量生成与校验
 
 在项目根目录列出要发布的资源，生成一份 JSON 清单：
@@ -122,7 +133,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 - 依据 [W3C SRI 规范](https://www.w3.org/TR/sri/)处理算法优先级、多个摘要和保留的 `?options` 部分；目前没有已定义的 SRI 选项。
 - 对已识别算法的摘要进行区分大小写的字符串比较。较强算法的摘要即使无效或不匹配，也不会退回较弱算法。
 - 作为离线检查工具，`NoSupportedMetadata` 单独报告，不把空元数据默认为通过。浏览器规范在这种情况下返回通过；这个区别仅影响 MoonSRI 的离线检查结果。
-- 不抓取 URL、不解析或改写 HTML、不模拟浏览器的 CORS、CSP、请求及响应处理。命令行只读取本地文件。
+- 标签生成和摘要校验以本地文件为输入。浏览器负责加载 URL、验证响应并执行页面的跨源策略。
 - 结果取决于精确字节；换行符或编码变化都会改变哈希。
 
 ## 开发

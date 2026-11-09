@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoonSRI 浏览器示例</title>
+  <link rel="stylesheet" href="style.css" integrity="sha384-/8lvhiEkNJ0U7UYTDsFDMF6jBlUGkKpxDpMHsAXgQmOeEJ4qPPuNx7MxIA0/hSZr" crossorigin="anonymous">
+</head>
+<body>
+  <h1>MoonSRI 浏览器示例</h1>
+  <p>两次请求返回同一个脚本。第二次故意使用 CSS 文件的摘要，模拟资源与预期不一致。</p>
+  <ul>
+    <li>摘要匹配：<strong id="matching" data-outcome="pending">等待加载</strong></li>
+    <li>摘要不匹配：<strong id="mismatching" data-outcome="pending">等待加载</strong></li>
+  </ul>
+  <script>
+    function showResult(event) {
+      const script = event.target;
+      if (!(script instanceof HTMLScriptElement)) return;
+      const id = {
+        "hello.js": "matching",
+        "hello.js?case=mismatch": "mismatching",
+      }[script.getAttribute("src")];
+      if (!id) return;
+      const result = document.getElementById(id);
+      result.dataset.outcome = event.type === "load" ? "loaded" : "blocked";
+      result.textContent = event.type === "load" ? "已加载并执行" : "加载失败，见浏览器控制台";
+    }
+    document.addEventListener("load", showResult, true);
+    document.addEventListener("error", showResult, true);
+  </script>
+  <script src="hello.js" integrity="sha384-uY+OtEjszwPe7jcYKI1KfAGMrLSMeFfhJc/DWf9ccFpWjjw1tKO9St/U0k2N8ONW" crossorigin="anonymous"></script>
+  <script src="hello.js?case=mismatch" integrity="sha384-/8lvhiEkNJ0U7UYTDsFDMF6jBlUGkKpxDpMHsAXgQmOeEJ4qPPuNx7MxIA0/hSZr" crossorigin="anonymous"></script>
+</body>
+</html>
