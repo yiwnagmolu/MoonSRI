@@ -1,10 +1,17 @@
 ///|
 /// SRI 1.0 algorithms supported by this library.
+#derive(Eq, Hash)
 pub(all) enum Algorithm {
   Sha256
   Sha384
   Sha512
 }
+
+///|
+pub extend Algorithm with Eq::{equal, not_equal}
+
+///|
+pub extend Algorithm with Hash::{hash, hash_combine}
 
 ///|
 /// A token with a recognized SRI hash algorithm.
@@ -49,7 +56,12 @@ pub fn generate(data : BytesView, algorithm : Algorithm) -> String {
 
 ///|
 fn encoded_digest(data : BytesView, algorithm : Algorithm) -> String {
-  let digest = @sha2.hash(data, kind=algorithm.kind())
+  let digest = match algorithm {
+    Sha256 => @crypto.sha256(data)
+    Sha384 => @crypto.sha384(data)
+    Sha512 => @crypto.sha512(data)
+  }
+  let digest = Bytes::from_array(digest[:])
   @base64.encode(digest[:])
 }
 
@@ -134,10 +146,14 @@ pub fn verify_bytes(data : BytesView, input : String) -> Verdict {
 /// Digest case is preserved; duplicate digests are removed and the rest sorted.
 pub fn canonical_metadata(input : String) -> String? {
   let items = parse_metadata(input)
+  if items.length() == 1 {
+    let item = items[0]
+    return Some(item.algorithm.label() + "-" + item.digest)
+  }
   guard strongest_algorithm(items) is Some(strongest) else { return None }
   let digests : Set[String] = Set([])
   for item in items {
-    if item.algorithm.strength() == strongest.strength() {
+    if item.algorithm == strongest {
       digests.add(item.digest)
     }
   }
@@ -155,14 +171,43 @@ pub fn verify_bytes_at_least(
   input : String,
   minimum : Algorithm,
 ) -> Result[Verdict, Algorithm] {
+  verify_using(input, Some(minimum), (items, algorithm) => {
+    verify_strongest(data, items, algorithm)
+  })
+}
+
+///|
+/// Verify against a token computed for the selected algorithm and resource,
+/// such as the output of `generate`. The provider runs only when hashing is
+/// required, so callers can reuse a digest across different declarations.
+pub fn verify_with_token(
+  input : String,
+  token_for : (Algorithm) -> String raise?,
+  minimum~ : Algorithm? = None,
+) -> Result[Verdict, Algorithm] raise? {
+  verify_using(input, minimum, (items, algorithm) => {
+    let token = token_for(algorithm)
+    guard token.strip_prefix(algorithm.label() + "-") is Some(digest) else {
+      return Mismatch
+    }
+    verify_digest(items, algorithm, digest)
+  })
+}
+
+///|
+fn verify_using(
+  input : String,
+  minimum : Algorithm?,
+  verify : (Array[Metadata], Algorithm) -> Verdict raise?,
+) -> Result[Verdict, Algorithm] raise? {
   let items = parse_metadata(input)
   guard strongest_algorithm(items) is Some(strongest) else {
     return Ok(NoSupportedMetadata)
   }
-  if strongest.strength() < minimum.strength() {
+  if minimum is Some(minimum) && strongest.strength() < minimum.strength() {
     return Err(strongest)
   }
-  Ok(verify_strongest(data, items, strongest))
+  Ok(verify(items, strongest))
 }
 
 ///|
@@ -185,9 +230,17 @@ fn verify_strongest(
 ) -> Verdict {
   // The expected digest depends on the algorithm, not the number of candidates.
   let expected = encoded_digest(data, strongest)
+  verify_digest(items, strongest, expected[:])
+}
+
+///|
+fn verify_digest(
+  items : Array[Metadata],
+  strongest : Algorithm,
+  expected : StringView,
+) -> Verdict {
   for item in items {
-    if item.algorithm.strength() == strongest.strength() &&
-      expected == item.digest {
+    if item.algorithm == strongest && expected == item.digest[:] {
       return Match
     }
   }

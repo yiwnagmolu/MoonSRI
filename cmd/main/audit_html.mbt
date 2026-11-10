@@ -4,6 +4,8 @@ priv struct AuditRun {
   minimum : @sri.Algorithm?
   baseline : Map[String, String]?
   verdicts : Map[(String, String), (Int32, String)]
+  readable_paths : Set[String]
+  tokens : Map[(String, @sri.Algorithm), String]
 }
 
 ///|
@@ -68,7 +70,14 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
     }
     None => None
   }
-  let run : AuditRun = { prefix, minimum, baseline, verdicts: Map([]), }
+  let run : AuditRun = {
+    prefix,
+    minimum,
+    baseline,
+    verdicts: Map([]),
+    readable_paths: Set([]),
+    tokens: Map([]),
+  }
   let mut code = 0
   for page in args[index:] {
     let (page_code, report) = audit_page(run, page, json_output)
@@ -258,12 +267,47 @@ fn AuditRun::verify_file(
   if self.verdicts.get(key) is Some(verdict) {
     return verdict
   }
-  let (code, status, _) = check_file_metadata(
-    self.prefix + path,
-    integrity,
-    self.minimum,
-  )
-  let verdict = (code, status)
+  let verdict = self.verify_file_with_cached_tokens(path, integrity)
   self.verdicts[key] = verdict
   verdict
+}
+
+///|
+fn AuditRun::verify_file_with_cached_tokens(
+  self : AuditRun,
+  path : String,
+  integrity : String,
+) -> (Int32, String) {
+  let file = self.prefix + path
+  // Keep read_error ahead of metadata errors, including for unsupported tokens.
+  let initial_bytes = if self.readable_paths.contains(path) {
+    None
+  } else {
+    let bytes = @fs.read_file_to_bytes(file) catch {
+      _ => return (2, "read_error")
+    }
+    self.readable_paths.add(path)
+    Some(bytes)
+  }
+  let verification = @sri.verify_with_token(
+    integrity,
+    algorithm => {
+      let key = (path, algorithm)
+      if self.tokens.get(key) is Some(token) {
+        return token
+      }
+      let bytes = match initial_bytes {
+        Some(bytes) => bytes
+        None => @fs.read_file_to_bytes(file)
+      }
+      let token = @sri.generate(bytes[:], algorithm)
+      self.tokens[key] = token
+      token
+    },
+    minimum=self.minimum,
+  ) catch {
+    _ => return (2, "read_error")
+  }
+  let (code, status, _) = describe_verification(verification)
+  (code, status)
 }

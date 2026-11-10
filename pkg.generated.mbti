@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "yiwnagmolu/moonsri"
 
+import {
+  "moonbitlang/core/builtin",
+}
+
 // Values
 pub fn canonical_metadata(String) -> String?
 
@@ -12,14 +16,21 @@ pub fn verify_bytes(BytesView, String) -> Verdict
 
 pub fn verify_bytes_at_least(BytesView, String, Algorithm) -> Result[Verdict, Algorithm]
 
+pub fn verify_with_token(String, (Algorithm) -> String raise?, minimum? : Algorithm?) -> Result[Verdict, Algorithm] raise?
+
 // Errors
 
 // Types and methods
+#derive(Eq, Hash)
 pub(all) enum Algorithm {
   Sha256
   Sha384
   Sha512
 }
+pub fn Algorithm::equal(Self, Self) -> Bool
+pub fn Algorithm::hash(Self) -> Int32
+pub fn Algorithm::hash_combine(Self, @builtin.Hasher) -> Unit
+pub fn Algorithm::not_equal(Self, Self) -> Bool
 
 type Hasher
 pub fn Hasher::metadata(Self) -> String

@@ -155,18 +155,22 @@ fn check_metadata(
   minimum : @sri.Algorithm?,
 ) -> (Int32, String, String) {
   let verdict = match minimum {
-    Some(algorithm) =>
-      match @sri.verify_bytes_at_least(bytes, integrity, algorithm) {
-        Ok(verdict) => verdict
-        Err(_) => return (1, "below_minimum", "below minimum algorithm")
-      }
-    None => @sri.verify_bytes(bytes, integrity)
+    Some(algorithm) => @sri.verify_bytes_at_least(bytes, integrity, algorithm)
+    None => Ok(@sri.verify_bytes(bytes, integrity))
   }
-  match verdict {
-    @sri.Match => (0, "match", "match")
-    @sri.Mismatch => (1, "mismatch", "mismatch")
-    @sri.NoSupportedMetadata =>
+  describe_verification(verdict)
+}
+
+///|
+fn describe_verification(
+  result : Result[@sri.Verdict, @sri.Algorithm],
+) -> (Int32, String, String) {
+  match result {
+    Ok(@sri.Match) => (0, "match", "match")
+    Ok(@sri.Mismatch) => (1, "mismatch", "mismatch")
+    Ok(@sri.NoSupportedMetadata) =>
       (2, "no_supported_metadata", "no supported SRI metadata")
+    Err(_) => (1, "below_minimum", "below minimum algorithm")
   }
 }
 

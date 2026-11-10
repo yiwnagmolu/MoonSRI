@@ -1,6 +1,7 @@
 import {
   "moonbitstack/mooncrypt/hash/sha2",
   "moonbitlang/core/encoding/base64",
+  "moonbitlang/x/crypto",
 }
 
 import {

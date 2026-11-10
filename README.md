@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.5.0](https://img.shields.io/badge/version-0.5.0-blue)](CHANGELOG.md)
+[![版本 0.5.1](https://img.shields.io/badge/version-0.5.1-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -169,7 +169,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.5.0
+moon add yiwnagmolu/moonsri@0.5.1
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：
@@ -202,6 +202,7 @@ fn main {
 - `canonical_metadata(input : String) -> String?`：规范化最强算法的摘要集合，供不同来源的 SRI 声明做等价比较。
 - `verify_bytes(data : BytesView, input : String) -> Verdict`：仅检查元数据中最强的已识别算法；同一强度的多个摘要只要有一个匹配即可。
 - `verify_bytes_at_least(data, input, minimum) -> Result[Verdict, Algorithm]`：对最强算法低于要求的元数据返回 `Err(实际算法)`，其余情况返回普通校验结果。
+- `verify_with_token(input, token_for, minimum=...)`：需要校验摘要时，按最强算法向回调请求由 `generate` 生成的完整 token。调用方可在多份声明间复用同一资源的摘要。
 
 `Algorithm` 包含 `Sha256`、`Sha384`、`Sha512`；`Verdict` 包含 `Match`、`Mismatch`、`NoSupportedMetadata`。
 

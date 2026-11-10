@@ -190,6 +190,15 @@ jobs:
           report="$(run_cli audit-html --root "$site" --baseline "$baseline" --json docs/ok.html docs/base.html)"
           node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages.some(p => p.resources[0]?.baseline.declaration !== "match" || p.resources[0]?.baseline.content !== "match")) process.exit(1)' <<< "$report"
 
+          cp "$site/docs/ok.html" "$site/docs/shared.html"
+          run_cli tag script examples/hello.js '../app%20main.js?v=2' sha512 >> "$site/docs/shared.html"
+          run_cli tag script examples/hello.js '../app%20main.js?v=3' sha256 >> "$site/docs/shared.html"
+          printf '%s\n' '<script src="../app%20main.js" integrity="sha999-invalid"></script>' '<script src="../missing.js" integrity="sha999-invalid"></script>' >> "$site/docs/shared.html"
+          status=0
+          report="$(run_cli audit-html --root "$site" --min-algorithm sha384 --json docs/shared.html)" || status=$?
+          test "$status" -eq 2
+          node -e 'const [page] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (page.resources.map(r => r.status).join(",") !== "match,match,below_minimum,no_supported_metadata,read_error") process.exit(1)' <<< "$report"
+
           printf '\nconsole.log("rebuilt");\n' >> "$site/app main.js"
           run_cli tag script "$site/app main.js" '../app%20main.js' > "$site/docs/rebuilt.html"
           run_cli tag stylesheet "$site/style.css" '/style.css' > "$site/docs/untracked.html"

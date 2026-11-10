@@ -36,6 +36,31 @@ test "minimum algorithm rejects otherwise matching weak metadata" {
 }
 
 ///|
+test "verification requests only the strongest needed token" {
+  let data = @utf8.encode("abc")
+  let sha512 = @moonsri.generate(data[:], Sha512)
+  let requested : Array[@moonsri.Algorithm] = []
+  let token_for = algorithm => {
+    requested.push(algorithm)
+    sha512
+  }
+  assert_true(
+    @moonsri.verify_with_token("sha256-weak sha512-other " + sha512, token_for)
+    is Ok(Match),
+  )
+  assert_true(
+    @moonsri.verify_with_token("sha256-weak", token_for, minimum=Some(Sha384))
+    is Err(Sha256),
+  )
+  assert_true(
+    @moonsri.verify_with_token("sha999-other", token_for)
+    is Ok(NoSupportedMetadata),
+  )
+  assert_eq(requested.length(), 1)
+  assert_true(requested[0] is Sha512)
+}
+
+///|
 /// Known SHA-2 vectors for the exact bytes "abc".
 test "generates SHA-256, SHA-384 and SHA-512 SRI tokens" {
   let data = @utf8.encode("abc")
