@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.2.2](https://img.shields.io/badge/version-0.2.2-blue)](CHANGELOG.md)
+[![版本 0.2.3](https://img.shields.io/badge/version-0.2.3-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -80,7 +80,7 @@ moon run cmd/main --target wasm -- check-manifest integrity.json
 moon run cmd/main --target wasm -- check-manifest --json integrity.json
 ```
 
-标准输出是一个 JSON 对象，键为清单中的文件路径，值为 `match`、`mismatch`、`read_error` 或 `no_supported_metadata`。清单有效时，即使有文件校验失败也会输出完整报告，退出码规则与默认模式相同。清单本身无法读取或解析时，诊断写入标准错误。
+标准输出是一个 JSON 对象，键为清单中的文件路径，值为 `match`、`mismatch`、`read_error` 或 `no_supported_metadata`。清单有效时，即使有文件校验失败也会输出完整报告，退出码规则与默认模式相同。参数错误或清单本身无法读取、解析时，诊断写入标准错误。
 
 生成和校验都支持 `--root`。例如从 `dist` 生成清单，在发布目录 `staging` 校验同一份清单：
 
@@ -122,7 +122,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.2.2
+moon add yiwnagmolu/moonsri@0.2.3
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：

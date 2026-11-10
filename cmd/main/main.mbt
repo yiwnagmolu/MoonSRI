@@ -1,18 +1,18 @@
 ///|
 fn usage() -> Unit {
-  println("Usage: moonsri generate <file> [algorithms]")
-  println("       moonsri tag <script|stylesheet> <file> <url> [algorithms]")
-  println(
+  eprintln("Usage: moonsri generate <file> [algorithms]")
+  eprintln("       moonsri tag <script|stylesheet> <file> <url> [algorithms]")
+  eprintln(
     "       moonsri check <file> <integrity-metadata> [--min-algorithm algorithm]",
   )
-  println(
+  eprintln(
     "       moonsri manifest [--algorithm algorithms] [--root dir] [--from files.txt] [--] [file...]",
   )
-  println(
+  eprintln(
     "       moonsri check-manifest [--json] [--root dir] [--min-algorithm algorithm] [--] <manifest.json>",
   )
-  println("       moonsri diff-manifest <before.json> <after.json>")
-  println(
+  eprintln("       moonsri diff-manifest <before.json> <after.json>")
+  eprintln(
     "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",
   )
 }
@@ -116,7 +116,7 @@ fn run(args : Array[String]) -> Int32 {
   let path = operands[0]
   let data = @fs.read_file_to_bytes(path) catch {
     _ => {
-      println("Cannot read file: " + path)
+      eprintln("Cannot read file: " + Json::string(path).stringify())
       return 2
     }
   }

@@ -68,11 +68,11 @@ fn is_metadata_space(ch : Char) -> Bool {
 }
 
 ///|
-fn parse_token(token : String) -> Metadata? {
+fn parse_token(token : StringView) -> Metadata? {
   // SRI reads the expression before '?' and the digest in its second field.
   let expression = match token.split_once("?") {
     Some((expression, _)) => expression
-    None => token[:]
+    None => token
   }
   let (label, tail) = match expression.split_once("-") {
     Some(parts) => parts
@@ -98,25 +98,21 @@ fn parse_token(token : String) -> Metadata? {
 /// Parse SRI tokens using the algorithm in SRI 1.0, ignoring unknown algorithms.
 pub fn parse_metadata(input : String) -> Array[Metadata] {
   let result : Array[Metadata] = []
-  let token = StringBuilder()
+  let mut start = 0
+  let mut offset = 0
   for ch in input {
+    let end = offset
+    offset += ch.utf16_len()
     if is_metadata_space(ch) {
-      if !token.is_empty() {
-        match parse_token(token.to_string()) {
-          Some(item) => result.push(item)
-          None => ()
-        }
-        token.reset()
+      if start < end &&
+        parse_token(input.exact_view(start~, end~)) is Some(item) {
+        result.push(item)
       }
-    } else {
-      token.write_char(ch)
+      start = offset
     }
   }
-  if !token.is_empty() {
-    match parse_token(token.to_string()) {
-      Some(item) => result.push(item)
-      None => ()
-    }
+  if start < offset && parse_token(input.exact_view(start~)) is Some(item) {
+    result.push(item)
   }
   result
 }

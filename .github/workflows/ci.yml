@@ -27,10 +27,18 @@ jobs:
           actual="$(moon run cmd/main --target ${{ matrix.target }} -- generate examples/hello.js)"
           test "$actual" = "$expected"
           moon run cmd/main --target ${{ matrix.target }} -- check examples/hello.js "$expected"
+          diagnostics="$(mktemp)"
+          trap 'rm -f -- "$diagnostics"' EXIT
           status=0
-          rejected="$(moon run cmd/main --target ${{ matrix.target }} -- typo generate examples/hello.js)" || status=$?
+          rejected="$(moon run cmd/main --target ${{ matrix.target }} -- typo generate examples/hello.js 2>"$diagnostics")" || status=$?
           test "$status" -eq 2
-          [[ "$rejected" == 'Usage:'* ]]
+          test -z "$rejected"
+          [[ "$(<"$diagnostics")" == *'Usage:'* ]]
+          status=0
+          report="$(moon run cmd/main --target ${{ matrix.target }} -- check-manifest --json 2>"$diagnostics")" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          [[ "$(<"$diagnostics")" == *'Usage:'* ]]
       - name: HTML tag smoke test
         shell: bash
         run: |

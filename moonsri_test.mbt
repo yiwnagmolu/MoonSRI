@@ -122,6 +122,18 @@ test "parses only the digest field before trailing fields and options" {
 }
 
 ///|
+test "metadata token boundaries account for Unicode characters" {
+  let parsed = @moonsri.parse_metadata(
+    " \tunknown-🙂 sha256-a🙂b\u{000c}SHA512-tail",
+  )
+  assert_eq(parsed.length(), 2)
+  assert_true(parsed[0].algorithm is Sha256)
+  assert_eq(parsed[0].digest, "a🙂b")
+  assert_true(parsed[1].algorithm is Sha512)
+  assert_eq(parsed[1].digest, "tail")
+}
+
+///|
 /// SRI token matching is case-sensitive for the digest, not the algorithm name.
 test "parses whitespace, unknown algorithms and options" {
   let data = @utf8.encode("abc")
