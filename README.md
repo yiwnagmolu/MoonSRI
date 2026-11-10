@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.3.3](https://img.shields.io/badge/version-0.3.3-blue)](CHANGELOG.md)
+[![版本 0.4.0](https://img.shields.io/badge/version-0.4.0-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -83,6 +83,17 @@ JSON 输出是按输入顺序排列的页面数组。每页包含 `page`、`stat
 moon run cmd/main --target wasm -- audit-html --root examples --json browser.html
 ```
 
+### 对照可信发布清单
+
+在审查通过的构建产物上生成一份基线清单，并将它与之后待部署的产物分开保管。加入 `--baseline` 后，`audit-html` 会核对页面声明、基线清单与部署文件三者。即使有人同时更改了文件和页面里的摘要，只要基线保持可信，审计也会报告变化。
+
+```sh
+moon run cmd/main --target wasm -- manifest --root reviewed-dist assets/app.js assets/site.css > approved-integrity.json
+moon run cmd/main --target wasm -- audit-html --root dist --baseline approved-integrity.json --json index.html docs/index.html
+```
+
+报告保留资源原有的 `status`，并为本地引用增加 `baseline.declaration` 和 `baseline.content`。声明可能为 `match`、`drift` 或 `untracked`，内容可能为 `match`、`mismatch`、`read_error`、`below_minimum` 或 `not_checked`。比较声明时只看最强算法及去重后的摘要集合，所以摘要顺序和重复项不影响结果。未登记的本地引用和任何基线偏差都会让审计失败。审计范围以本次传入页面的静态本地引用为准，基线文件的真实性由发布流程保证。
+
 ## 批量生成与校验
 
 在项目根目录列出要发布的资源，生成一份 JSON 清单：
@@ -146,7 +157,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.3.3
+moon add yiwnagmolu/moonsri@0.4.0
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：
@@ -176,6 +187,7 @@ fn main {
 
 - `generate(data : BytesView, algorithm : Algorithm) -> String`：计算一个 SRI 元数据字符串。
 - `parse_metadata(input : String) -> Array[Metadata]`：解析含多个哈希表达式的字符串，忽略未知算法。
+- `canonical_metadata(input : String) -> String?`：规范化最强算法的摘要集合，供不同来源的 SRI 声明做等价比较。
 - `verify_bytes(data : BytesView, input : String) -> Verdict`：仅检查元数据中最强的已识别算法；同一强度的多个摘要只要有一个匹配即可。
 - `verify_bytes_at_least(data, input, minimum) -> Result[Verdict, Algorithm]`：对最强算法低于要求的元数据返回 `Err(实际算法)`，其余情况返回普通校验结果。
 

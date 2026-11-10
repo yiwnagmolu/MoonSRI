@@ -2,7 +2,16 @@
 priv struct AuditRun {
   prefix : String
   minimum : @sri.Algorithm?
+  baseline : Map[String, String]?
   verdicts : Map[(String, String), (Int32, String)]
+}
+
+///|
+priv struct AuditFinding {
+  code : Int32
+  status : String
+  path : String?
+  baseline : BaselineCheck?
 }
 
 ///|
@@ -10,6 +19,7 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
   let mut root = None
   let mut json_output = false
   let mut minimum = None
+  let mut baseline_path = None
   let mut index = 0
   while index < args.length() {
     match args[index] {
@@ -23,6 +33,10 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
       "--json" if !json_output => {
         json_output = true
         index += 1
+      }
+      "--baseline" if baseline_path is None && index + 1 < args.length() => {
+        baseline_path = Some(args[index + 1])
+        index += 2
       }
       "--min-algorithm" if minimum is None && index + 1 < args.length() => {
         guard parse_minimum(args[index + 1]) is Some(algorithm) else {
@@ -47,7 +61,14 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
     return 2
   }
   let reports : Array[Json] = []
-  let run : AuditRun = { prefix, minimum, verdicts: Map([]), }
+  let baseline = match baseline_path {
+    Some(path) => {
+      guard read_audit_baseline(path) is Some(entries) else { return 2 }
+      Some(entries)
+    }
+    None => None
+  }
+  let run : AuditRun = { prefix, minimum, baseline, verdicts: Map([]), }
   let mut code = 0
   for page in args[index:] {
     let (page_code, report) = audit_page(run, page, json_output)
@@ -92,11 +113,9 @@ fn audit_page(
   let resources : Array[Json] = []
   let mut code = 0
   for reference in doc.references {
-    let (resource_code, status, path) = audit_reference(
-      run, directory, reference,
-    )
-    if resource_code > code {
-      code = resource_code
+    let finding = audit_reference(run, directory, reference)
+    if finding.code > code {
+      code = finding.code
     }
     let kind = match reference.kind {
       @audit.Script => "script"
@@ -106,21 +125,39 @@ fn audit_page(
       let entry = Map([
         ("kind", Json::string(kind)),
         ("url", Json::string(reference.url)),
-        ("status", Json::string(status)),
+        ("status", Json::string(finding.status)),
       ])
-      if path is Some(path) {
+      if finding.path is Some(path) {
         entry["path"] = Json::string(path)
+      }
+      if finding.baseline is Some(baseline) {
+        entry["baseline"] = Json::object(
+          Map([
+            ("declaration", Json::string(baseline.declaration)),
+            ("content", Json::string(baseline.content)),
+          ]),
+        )
       }
       resources.push(Json::object(entry))
     } else {
+      let baseline = match finding.baseline {
+        None => ""
+        Some(check) =>
+          " [baseline declaration=" +
+          check.declaration +
+          " content=" +
+          check.content +
+          "]"
+      }
       println(
-        status +
+        finding.status +
         ": " +
         quoted +
         " " +
         kind +
         " " +
-        Json::string(reference.url).stringify(),
+        Json::string(reference.url).stringify() +
+        baseline,
       )
     }
   }
@@ -169,26 +206,46 @@ fn audit_reference(
   run : AuditRun,
   directory : String,
   reference : @audit.Reference,
-) -> (Int32, String, String?) {
+) -> AuditFinding {
   match resolve_audit_path(directory, reference.url) {
-    External => (0, "external", None)
-    Directory(_) | SameDocument | Invalid => (2, "invalid_url", None)
+    External => { code: 0, status: "external", path: None, baseline: None, }
+    Directory(_) | SameDocument | Invalid =>
+      { code: 2, status: "invalid_url", path: None, baseline: None, }
     Local(path) => {
       let integrity = reference.integrity.unwrap_or("")
-      if integrity.trim(chars=" \t\n\r\u{000c}").is_empty() {
-        return (1, "missing_integrity", Some(path))
+      let declared = if run.baseline is Some(_) {
+        @sri.canonical_metadata(integrity)
+      } else {
+        None
       }
-      let key = (path, integrity)
-      if run.verdicts.get(key) is Some((code, status)) {
-        return (code, status, Some(path))
+      let (code, status) = if integrity.trim(chars=" \t\n\r\u{000c}").is_empty() {
+        (1, "missing_integrity")
+      } else {
+        run.verify_file(path, declared.unwrap_or(integrity))
       }
-      let (code, status, _) = check_file_metadata(
-        run.prefix + path,
-        integrity,
-        run.minimum,
-      )
-      run.verdicts[key] = (code, status)
-      (code, status, Some(path))
+      let (baseline_code, baseline) = run.check_baseline(path, declared)
+      let code = if baseline_code > code { baseline_code } else { code }
+      { code, status, path: Some(path), baseline, }
     }
   }
+}
+
+///|
+fn AuditRun::verify_file(
+  self : AuditRun,
+  path : String,
+  integrity : String,
+) -> (Int32, String) {
+  let key = (path, integrity)
+  if self.verdicts.get(key) is Some(verdict) {
+    return verdict
+  }
+  let (code, status, _) = check_file_metadata(
+    self.prefix + path,
+    integrity,
+    self.minimum,
+  )
+  let verdict = (code, status)
+  self.verdicts[key] = verdict
+  verdict
 }

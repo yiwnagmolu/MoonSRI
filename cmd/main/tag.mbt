@@ -61,7 +61,8 @@ fn is_resource_url(url : String) -> Bool {
     return !rest.is_empty() &&
       !rest.has_prefix("/") &&
       !rest.has_prefix("?") &&
-      !rest.has_prefix("#")
+      !rest.has_prefix("#") &&
+      is_valid_http_url(url[:])
   }
   // A colon before the first path delimiter can introduce a URL scheme.
   for char in url {

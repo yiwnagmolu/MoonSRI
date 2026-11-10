@@ -130,6 +130,24 @@ pub fn verify_bytes(data : BytesView, input : String) -> Verdict {
 }
 
 ///|
+/// Normalize the effective digest set to its strongest recognized algorithm.
+/// Digest case is preserved; duplicate digests are removed and the rest sorted.
+pub fn canonical_metadata(input : String) -> String? {
+  let items = parse_metadata(input)
+  guard strongest_algorithm(items) is Some(strongest) else { return None }
+  let digests : Set[String] = Set([])
+  for item in items {
+    if item.algorithm.strength() == strongest.strength() {
+      digests.add(item.digest)
+    }
+  }
+  let sorted = digests.iter().to_array()
+  sorted.sort_by((left, right) => left.lexical_compare(right))
+  let prefix = strongest.label() + "-"
+  Some(sorted.map(digest => prefix + digest).join(" "))
+}
+
+///|
 /// Verify with a minimum algorithm strength. Err contains the strongest
 /// advertised algorithm when it falls below the minimum.
 pub fn verify_bytes_at_least(

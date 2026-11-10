@@ -134,6 +134,21 @@ test "metadata token boundaries account for Unicode characters" {
 }
 
 ///|
+test "canonical metadata compares effective digests across reordered declarations" {
+  assert_eq(
+    @moonsri.canonical_metadata(
+      "sha256-weak SHA384-Z?opt=1 sha384-A sha384-Z sha999-x",
+    ),
+    Some("sha384-A sha384-Z"),
+  )
+  assert_eq(
+    @moonsri.canonical_metadata("sha384-A sha384-a"),
+    Some("sha384-A sha384-a"),
+  )
+  assert_eq(@moonsri.canonical_metadata("sha999-unknown"), None)
+}
+
+///|
 /// SRI token matching is case-sensitive for the digest, not the algorithm name.
 test "parses whitespace, unknown algorithms and options" {
   let data = @utf8.encode("abc")

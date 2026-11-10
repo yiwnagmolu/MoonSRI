@@ -46,10 +46,16 @@ fn resolve_audit_path(directory : String, raw_url : String) -> AuditPath {
     None
   }
   if authority is Some(rest) {
+    let absolute_url = if url.has_prefix("//") {
+      "https:" + url.to_owned()
+    } else {
+      url.to_owned()
+    }
     return if rest.is_empty() ||
       rest.has_prefix("/") ||
       rest.has_prefix("?") ||
-      rest.has_prefix("#") {
+      rest.has_prefix("#") ||
+      !is_valid_http_url(absolute_url[:]) {
       Invalid
     } else {
       External

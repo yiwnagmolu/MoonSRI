@@ -2,6 +2,8 @@
 package "yiwnagmolu/moonsri"
 
 // Values
+pub fn canonical_metadata(String) -> String?
+
 pub fn generate(BytesView, Algorithm) -> String
 
 pub fn parse_metadata(String) -> Array[Metadata]

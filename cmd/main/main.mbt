@@ -13,7 +13,7 @@ fn usage() -> Unit {
   )
   eprintln("       moonsri diff-manifest <before.json> <after.json>")
   eprintln(
-    "       moonsri audit-html --root dir [--json] [--min-algorithm algorithm] [--] <page>...",
+    "       moonsri audit-html --root dir [--baseline manifest.json] [--json] [--min-algorithm algorithm] [--] <page>...",
   )
   eprintln(
     "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",

@@ -11,7 +11,7 @@
 
 name = "yiwnagmolu/moonsri"
 
-version = "0.3.3"
+version = "0.4.0"
 
 readme = "README.md"
 
@@ -23,10 +23,11 @@ keywords = [ "sri", "integrity", "sha2", "subresource-integrity" ]
 
 preferred_target = "wasm"
 
-description = "Generate and verify Subresource Integrity metadata in MoonBit"
+description = "MoonBit Subresource Integrity toolkit for generation, HTML audits, and trusted deployment baselines"
 
 import {
   "moonbitstack/mooncrypt@0.4.13",
   "moonbitlang/x@0.5.7",
   "moonbit-community/html@0.2.4",
+  "tonyfettes/url@0.3.5",
 }
