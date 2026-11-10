@@ -1,16 +1,34 @@
 ///|
 priv enum AuditPath {
   Local(String)
+  Directory(String)
+  SameDocument
   External
   Invalid
 }
 
 ///|
+fn audit_base_directory(page : String, base : String) -> String? {
+  let directory = parent_directory(page)
+  match resolve_audit_path(directory, base) {
+    Local(path) => Some(parent_directory(path))
+    Directory(path) => Some(path)
+    SameDocument => Some(directory)
+    External | Invalid => None
+  }
+}
+
+///|
+fn parent_directory(path : String) -> String {
+  match path.rev_split_once("/") {
+    Some((parent, _)) => parent.to_owned()
+    None => ""
+  }
+}
+
+///|
 fn resolve_audit_path(directory : String, raw_url : String) -> AuditPath {
   let url = raw_url.trim(chars=" \t\n\r\u{000c}")
-  if url.is_empty() {
-    return Invalid
-  }
   for ch in url {
     if ch < ' ' || ch == '\u{007f}' || ch == '\\' {
       return Invalid
@@ -45,6 +63,12 @@ fn resolve_audit_path(directory : String, raw_url : String) -> AuditPath {
     Some((path, _)) => path
     None => path
   }
+  if path.is_empty() {
+    return SameDocument
+  }
+  if path == "/" {
+    return Directory("")
+  }
   let segments : Array[String] = []
   let relative = match path.strip_prefix("/") {
     Some(relative) => relative
@@ -57,8 +81,10 @@ fn resolve_audit_path(directory : String, raw_url : String) -> AuditPath {
       path
     }
   }
+  // A final slash names a directory. An empty segment elsewhere is ambiguous.
+  let segments_path = relative.strip_suffix("/").unwrap_or(relative)
   let mut ends_in_file = false
-  for raw in relative.split("/") {
+  for raw in segments_path.split("/") {
     guard decode_url_segment(raw) is Some(segment) else { return Invalid }
     ends_in_file = false
     match segment {
@@ -73,10 +99,10 @@ fn resolve_audit_path(directory : String, raw_url : String) -> AuditPath {
       }
     }
   }
-  if ends_in_file {
+  if ends_in_file && !path.has_suffix("/") {
     Local(segments.join("/"))
   } else {
-    Invalid
+    Directory(segments.join("/"))
   }
 }
 

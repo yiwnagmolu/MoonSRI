@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.3.1](https://img.shields.io/badge/version-0.3.1-blue)](CHANGELOG.md)
+[![版本 0.3.2](https://img.shields.io/badge/version-0.3.2-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -67,7 +67,9 @@ moon run cmd/main --target wasm -- tag stylesheet examples/style.css /assets/sty
 moon run cmd/main --target wasm -- audit-html --root dist --json --min-algorithm sha384 index.html docs/index.html
 ```
 
-页面参数是相对于 `--root` 的文件路径。相对资源 URL 从页面目录解析，以 `/` 开头的 URL 从部署根目录解析。支持 UTF-8 百分号编码，校验时只使用路径部分。`<base href="/">` 也会让相对 URL 从部署根目录解析。
+页面参数是相对于 `--root` 的文件路径。相对资源 URL 默认从页面目录解析，以 `/` 开头的 URL 从部署根目录解析。支持 UTF-8 百分号编码，校验时只使用路径部分。
+
+页面可用本地 `base href` 指定资源的解析目录。`/assets/` 从部署根目录定位，`../assets/` 从页面目录定位。末尾有 `/` 时使用该目录，文件形式的地址则使用其上级目录，例如 `/assets/index.html` 对应 `/assets/`。远程基准地址会报告 `unsupported_base`。
 
 JSON 输出是按输入顺序排列的页面数组。每页包含 `page`、`status` 和 `resources`，资源条目记录 `kind`、`url`、`status`，并在可定位到本地文件时提供 `path`。绝对 HTTP(S) 地址和以 `//` 开头的地址标为 `external`，跳过校验。
 
@@ -144,7 +146,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.3.1
+moon add yiwnagmolu/moonsri@0.3.2
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：

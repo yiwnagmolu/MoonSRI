@@ -79,23 +79,15 @@ fn audit_page(
     return (2, audit_report(page, "read_error", [], json_output))
   }
   let doc = @audit.scan(source)
-  let base = doc.base_href.unwrap_or("").trim(chars=" \t\n\r\u{000c}")
-  let directory = match base {
-    "" =>
-      match page.rev_split_once("/") {
-        Some((parent, _)) => parent.to_owned()
-        None => ""
-      }
-    "/" => ""
-    _ => {
-      eprintln(
-        "Unsupported base href in " +
-        quoted +
-        ": " +
-        Json::string(base.to_owned()).stringify(),
-      )
-      return (2, audit_report(page, "unsupported_base", [], json_output))
-    }
+  let base = doc.base_href.unwrap_or("")
+  guard audit_base_directory(page, base) is Some(directory) else {
+    eprintln(
+      "Unsupported base href in " +
+      quoted +
+      ": " +
+      Json::string(base).stringify(),
+    )
+    return (2, audit_report(page, "unsupported_base", [], json_output))
   }
   let resources : Array[Json] = []
   let mut code = 0
@@ -180,7 +172,7 @@ fn audit_reference(
 ) -> (Int32, String, String?) {
   match resolve_audit_path(directory, reference.url) {
     External => (0, "external", None)
-    Invalid => (2, "invalid_url", None)
+    Directory(_) | SameDocument | Invalid => (2, "invalid_url", None)
     Local(path) => {
       let integrity = reference.integrity.unwrap_or("")
       if integrity.trim(chars=" \t\n\r\u{000c}").is_empty() {

@@ -145,14 +145,21 @@ jobs:
             moon run cmd/main --target ${{ matrix.target }} -- "$@"
           }
           site="$(mktemp -d .moonsri-audit.XXXXXX)"
-          mkdir -p "$site/docs"
+          mkdir -p "$site/docs" "$site/site assets"
           cp examples/hello.js "$site/app main.js"
+          cp examples/hello.js "$site/site assets/app main.js"
           cp examples/style.css "$site/style.css"
           run_cli tag script examples/hello.js '../app%20main.js?v=1' > "$site/docs/ok.html"
           printf '%s\n' '<base href=" / ">' > "$site/docs/base.html"
           run_cli tag script examples/hello.js 'app%20main.js' >> "$site/docs/base.html"
           report="$(run_cli audit-html --root "$site" --json docs/ok.html docs/base.html)"
           node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages.some(p => p.status !== "ok" || p.resources.length !== 1 || p.resources[0].status !== "match" || p.resources[0].path !== "app main.js")) process.exit(1)' <<< "$report"
+
+          printf '%s\n' '<base href="../site%20assets/">' > "$site/docs/local-base.html"
+          printf '%s\n' '<base href="/site%20assets/home.html">' > "$site/docs/file-base.html"
+          run_cli tag script examples/hello.js 'app%20main.js' | tee -a "$site/docs/local-base.html" >> "$site/docs/file-base.html"
+          report="$(run_cli audit-html --root "$site" --json docs/local-base.html docs/file-base.html)"
+          node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages.some(p => p.resources[0]?.path !== "site assets/app main.js" || p.resources[0]?.status !== "match")) process.exit(1)' <<< "$report"
 
           cp "$site/docs/ok.html" "$site/docs/fail.html"
           printf '%s\n' '<link rel=stylesheet href=/style.css>' '<script src="https://cdn.example/app.js"></script>' >> "$site/docs/fail.html"
@@ -166,7 +173,7 @@ jobs:
           test "$status" -eq 1
           node -e 'const [page] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (page.resources.map(r => r.status).join(",") !== "match,match,mismatch") process.exit(1)' <<< "$report"
 
-          printf '%s\n' '<base href="/assets/"><script src="app.js"></script>' > "$site/docs/unsupported.html"
+          printf '%s\n' '<base href="https://cdn.example/assets/"><script src="app.js"></script>' > "$site/docs/unsupported.html"
           status=0
           report="$(run_cli audit-html --root "$site" --json docs/unsupported.html)" || status=$?
           test "$status" -eq 2
