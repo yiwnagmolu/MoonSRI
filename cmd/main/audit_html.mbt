@@ -71,7 +71,7 @@ fn audit_page(
   json_output : Bool,
 ) -> (Int32, Json?) {
   let quoted = Json::string(page).stringify()
-  guard page.split("/").all(part => is_audit_file_segment(part.to_owned())) else {
+  guard is_portable_relative_path(page) else {
     eprintln("Expected a relative HTML page path: " + quoted)
     return (2, audit_report(page, "invalid_page_path", [], json_output))
   }

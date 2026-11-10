@@ -72,6 +72,12 @@ jobs:
           test "$status" -eq 2
           test -z "$report"
           run_cli diff-manifest "$temp_dir/rooted.json" "$temp_dir/rooted.json"
+          printf '%s\n' '{"hello.js":"sha384-invalid","asset?.js":"sha384-invalid"}' > "$temp_dir/nonportable.json"
+          status=0
+          report="$(run_cli check-manifest --root examples --json "$temp_dir/nonportable.json" 2>"$temp_dir/nonportable.err")" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          [[ "$(<"$temp_dir/nonportable.err")" == *'Expected a portable relative asset path:'* ]]
           printf '%s\n' '{"style.css":"sha384-new","hello.js":"sha384-updated"}' > "$temp_dir/next.json"
           status=0
           report="$(run_cli diff-manifest "$temp_dir/rooted.json" "$temp_dir/next.json")" || status=$?

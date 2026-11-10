@@ -135,13 +135,7 @@ fn parse_root_prefix(dir : String) -> String? {
 
 ///|
 fn validate_relative_asset(path : String) -> Bool {
-  let valid = !path.contains_char('\\') &&
-    !path.contains_char(':') &&
-    path
-    .split("/")
-    .all(part => {
-      !part.is_empty() && !part.has_suffix(".") && !part.has_suffix(" ")
-    })
+  let valid = is_portable_relative_path(path)
   if !valid {
     eprintln(
       "Expected a portable relative asset path: " +

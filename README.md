@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.3.2](https://img.shields.io/badge/version-0.3.2-blue)](CHANGELOG.md)
+[![版本 0.3.3](https://img.shields.io/badge/version-0.3.3-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -113,7 +113,7 @@ moon run cmd/main --target wasm -- manifest --root dist assets/app.js > integrit
 moon run cmd/main --target wasm -- check-manifest --root staging integrity.json
 ```
 
-清单键仍是 `assets/app.js`。使用 `--root` 时，资源路径必须是以 `/` 分隔的相对路径，路径段不能以点或空格结尾。指定的根目录用于拼接路径，操作系统仍会按正常规则解析符号链接。
+清单键仍是 `assets/app.js`。使用 `--root` 时，清单命令与 HTML 审计共用可移植路径规则。文件名可以包含中文和中间空格，路径必须是以 `/` 分隔的相对路径，路径段不能以点或空格结尾，也不能包含控制字符或使用 Windows 保留的文件名。指定的根目录用于拼接路径，操作系统仍会按正常规则解析符号链接。
 
 ### 从文件列表生成清单
 
@@ -146,7 +146,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.3.2
+moon add yiwnagmolu/moonsri@0.3.3
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：
