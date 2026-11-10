@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.2.3](https://img.shields.io/badge/version-0.2.3-blue)](CHANGELOG.md)
+[![版本 0.3.0](https://img.shields.io/badge/version-0.3.0-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -58,6 +58,26 @@ moon run cmd/main --target wasm -- tag stylesheet examples/style.css /assets/sty
 ```
 
 运行 `python -m http.server 8765 --bind 127.0.0.1` 后打开 [浏览器示例](http://127.0.0.1:8765/examples/browser.html)。页面会显示匹配摘要的脚本成功执行，另一条故意填错的摘要会触发加载错误。控制台可以看到浏览器给出的 SRI 错误。
+
+## 审计部署后的 HTML
+
+`audit-html` 读取部署目录中的 UTF-8 HTML，检查页面实际写入的 `script[src]` 与 `link[rel=stylesheet][href]` 是否带有 `integrity`，并用本地资源字节校验摘要。可以一次检查多个页面，也可以设置最低算法强度。
+
+```sh
+moon run cmd/main --target wasm -- audit-html --root dist --json --min-algorithm sha384 index.html docs/index.html
+```
+
+页面参数是相对于 `--root` 的文件路径。相对资源 URL 从页面目录解析，以 `/` 开头的 URL 从部署根目录解析。支持 UTF-8 百分号编码，校验时只使用路径部分。`<base href="/">` 也会让相对 URL 从部署根目录解析。
+
+JSON 输出是按输入顺序排列的页面数组。每页包含 `page`、`status` 和 `resources`，资源条目记录 `kind`、`url`、`status`，并在可定位到本地文件时提供 `path`。绝对 HTTP(S) 地址和以 `//` 开头的地址标为 `external`，跳过校验。
+
+退出码 `0` 表示没有审计失败项，`1` 表示本地资源缺少摘要、摘要不匹配或低于算法要求，`2` 表示读取失败、没有受支持算法、URL 无法解析为本地文件或页面含不支持的 `base href`。多个页面中以最高退出码为准。审计范围是静态 HTML 引用，URL 与文件的映射以传入的部署目录为准。
+
+可直接审计仓库中的浏览器示例。示例故意为一条脚本引用填了错误摘要，预期返回 `1`。
+
+```sh
+moon run cmd/main --target wasm -- audit-html --root examples --json browser.html
+```
 
 ## 批量生成与校验
 
@@ -122,7 +142,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.2.3
+moon add yiwnagmolu/moonsri@0.3.0
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：
@@ -160,6 +180,8 @@ fn main {
 如果应用分块读取资源，可以用 `Hasher::new(algorithm)` 创建增量计算器，按顺序调用 `update(chunk)`，最后用 `metadata()` 取得 SRI 字符串。中途读取摘要不会改变计算状态，调用 `reset()` 可用同一种算法开始计算下一个资源。
 
 子包 `yiwnagmolu/moonsri/manifest` 提供 `parse` 和 `encode`。它负责检查 JSON 清单结构，返回路径到 SRI 字符串的映射，适合接入构建工具或自行决定如何读取资源。
+
+子包 `yiwnagmolu/moonsri/audit` 的 `scan(html)` 返回 HTML 中的脚本和样式表引用、对应的 `integrity` 和首个生效的 `base href`。它依赖 [moonbit-community/html](https://mooncakes.io/docs/moonbit-community/html/) 解析 HTML，可以在 MoonBit 构建工具里独立调用。
 
 ## 范围与行为
 

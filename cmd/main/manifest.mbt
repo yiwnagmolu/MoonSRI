@@ -176,7 +176,7 @@ fn check_manifest(
   let report : Map[String, Json] = Map([])
   for asset, integrity in assets {
     let file = asset_file(root, asset)
-    let (code, result, message) = check_manifest_asset(file, integrity, minimum)
+    let (code, result, message) = check_file_metadata(file, integrity, minimum)
     if code > status {
       status = code
     }
@@ -271,7 +271,7 @@ fn run_diff_manifest(args : ArrayView[String]) -> Int32 {
 }
 
 ///|
-fn check_manifest_asset(
+fn check_file_metadata(
   asset : String,
   integrity : String,
   minimum : @sri.Algorithm?,

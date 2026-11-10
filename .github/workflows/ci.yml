@@ -138,3 +138,36 @@ jobs:
             test "$status" -eq 2
             node -e 'const results = Object.values(JSON.parse(require("node:fs").readFileSync(0, "utf8"))); if (results.length !== 3000 || results.some(result => result !== "read_error")) process.exit(1)' <<< "$report"
           fi
+      - name: HTML audit smoke test
+        shell: bash
+        run: |
+          run_cli() {
+            moon run cmd/main --target ${{ matrix.target }} -- "$@"
+          }
+          site="$(mktemp -d .moonsri-audit.XXXXXX)"
+          mkdir -p "$site/docs"
+          cp examples/hello.js "$site/app main.js"
+          cp examples/style.css "$site/style.css"
+          run_cli tag script examples/hello.js '../app%20main.js?v=1' > "$site/docs/ok.html"
+          printf '%s\n' '<base href="/">' > "$site/docs/base.html"
+          run_cli tag script examples/hello.js 'app%20main.js' >> "$site/docs/base.html"
+          report="$(run_cli audit-html --root "$site" --json docs/ok.html docs/base.html)"
+          node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages.some(p => p.status !== "ok" || p.resources.length !== 1 || p.resources[0].status !== "match" || p.resources[0].path !== "app main.js")) process.exit(1)' <<< "$report"
+
+          cp "$site/docs/ok.html" "$site/docs/fail.html"
+          printf '%s\n' '<link rel=stylesheet href=/style.css>' '<script src="https://cdn.example/app.js"></script>' >> "$site/docs/fail.html"
+          status=0
+          report="$(run_cli audit-html --root "$site" --json docs/fail.html)" || status=$?
+          test "$status" -eq 1
+          node -e 'const [page] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (page.status !== "failed" || page.resources.map(r => r.status).join(",") !== "match,missing_integrity,external") process.exit(1)' <<< "$report"
+
+          status=0
+          report="$(run_cli audit-html --root examples --json browser.html)" || status=$?
+          test "$status" -eq 1
+          node -e 'const [page] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (page.resources.map(r => r.status).join(",") !== "match,match,mismatch") process.exit(1)' <<< "$report"
+
+          printf '%s\n' '<base href="/assets/"><script src="app.js"></script>' > "$site/docs/unsupported.html"
+          status=0
+          report="$(run_cli audit-html --root "$site" --json docs/unsupported.html)" || status=$?
+          test "$status" -eq 2
+          node -e 'const [page] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (page.status !== "unsupported_base" || page.resources.length !== 0) process.exit(1)' <<< "$report"

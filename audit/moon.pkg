@@ -1,0 +1,3 @@
+import {
+  "moonbit-community/html/src" @html5,
+}

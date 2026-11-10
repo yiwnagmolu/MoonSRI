@@ -11,7 +11,7 @@
 
 name = "yiwnagmolu/moonsri"
 
-version = "0.2.3"
+version = "0.3.0"
 
 readme = "README.md"
 
@@ -28,4 +28,5 @@ description = "Generate and verify Subresource Integrity metadata in MoonBit"
 import {
   "moonbitstack/mooncrypt@0.4.13",
   "moonbitlang/x@0.5.7",
+  "moonbit-community/html@0.2.4",
 }

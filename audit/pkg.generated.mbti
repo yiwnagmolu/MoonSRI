@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "yiwnagmolu/moonsri/audit"
+
+// Values
+pub fn scan(String) -> Document
+
+// Errors
+
+// Types and methods
+pub(all) struct Document {
+  references : Array[Reference]
+  base_href : String?
+}
+
+pub(all) struct Reference {
+  kind : ResourceKind
+  url : String
+  integrity : String?
+}
+
+pub(all) enum ResourceKind {
+  Script
+  Stylesheet
+}
+
+// Type aliases
+
+// Traits

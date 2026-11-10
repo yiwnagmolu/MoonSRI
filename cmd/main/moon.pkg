@@ -1,5 +1,6 @@
 import {
   "yiwnagmolu/moonsri" @sri,
+  "yiwnagmolu/moonsri/audit",
   "yiwnagmolu/moonsri/manifest",
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
