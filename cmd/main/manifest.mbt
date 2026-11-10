@@ -13,7 +13,9 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
         algorithms = Some(selected)
       }
       "--root" if root is None && first_file + 1 < args.length() => {
-        guard parse_root(args[first_file + 1]) is Some(dir) else { return 2 }
+        guard parse_root_prefix(args[first_file + 1]) is Some(dir) else {
+          return 2
+        }
         root = Some(dir)
       }
       "--from" if list_path is None && first_file + 1 < args.length() =>
@@ -59,7 +61,10 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
       eprintln("Duplicate asset path: " + quoted_path)
       return 2
     }
-    guard resolve_asset(root, path) is Some(file) else { return 2 }
+    if root is Some(_) && !validate_relative_asset(path) {
+      return 2
+    }
+    let file = asset_file(root, path)
     let data = @fs.read_file_to_bytes(file) catch {
       _ => {
         eprintln("Cannot read file: " + quoted_path)
@@ -91,7 +96,7 @@ fn run_check_manifest(args : ArrayView[String]) -> Int32 {
         index += 1
       }
       "--root" if root is None && index + 1 < args.length() => {
-        guard parse_root(args[index + 1]) is Some(dir) else { return 2 }
+        guard parse_root_prefix(args[index + 1]) is Some(dir) else { return 2 }
         root = Some(dir)
         index += 2
       }
@@ -120,17 +125,16 @@ fn run_check_manifest(args : ArrayView[String]) -> Int32 {
 }
 
 ///|
-fn parse_root(dir : String) -> String? {
+fn parse_root_prefix(dir : String) -> String? {
   if !@manifest.is_asset_path(dir) {
     eprintln("Invalid asset root: " + Json::string(dir).stringify())
     return None
   }
-  Some(dir)
+  Some(if dir.has_suffix("/") { dir } else { dir + "/" })
 }
 
 ///|
-fn resolve_asset(root : String?, path : String) -> String? {
-  guard root is Some(dir) else { return Some(path) }
+fn validate_relative_asset(path : String) -> Bool {
   let valid = !path.contains_char('\\') &&
     !path.contains_char(':') &&
     path
@@ -143,9 +147,16 @@ fn resolve_asset(root : String?, path : String) -> String? {
       "Expected a portable relative asset path: " +
       Json::string(path).stringify(),
     )
-    return None
   }
-  Some(dir + "/" + path)
+  valid
+}
+
+///|
+fn asset_file(root_prefix : String?, path : String) -> String {
+  match root_prefix {
+    Some(prefix) => prefix + path
+    None => path
+  }
 }
 
 ///|
@@ -156,15 +167,15 @@ fn check_manifest(
   minimum : @sri.Algorithm?,
 ) -> Int32 {
   guard read_manifest(path) is Some(assets) else { return 2 }
-  let files : Array[(String, String, String)] = []
-  for asset, integrity in assets {
-    guard resolve_asset(root, asset) is Some(file) else { return 2 }
-    files.push((asset, file, integrity))
+  if root is Some(_) {
+    for asset, _ in assets {
+      guard validate_relative_asset(asset) else { return 2 }
+    }
   }
   let mut status = 0
   let report : Map[String, Json] = Map([])
-  for entry in files {
-    let (asset, file, integrity) = entry
+  for asset, integrity in assets {
+    let file = asset_file(root, asset)
     let (code, result, message) = check_manifest_asset(file, integrity, minimum)
     if code > status {
       status = code

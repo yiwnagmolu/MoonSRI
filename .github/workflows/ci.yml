@@ -57,6 +57,12 @@ jobs:
           temp_dir="$(mktemp -d .moonsri-test.XXXXXX)"
           run_cli manifest --root examples hello.js > "$temp_dir/rooted.json"
           test "$(run_cli check-manifest --root examples "$temp_dir/rooted.json")" = 'match: "hello.js"'
+          test "$(run_cli check-manifest --root examples/ "$temp_dir/rooted.json")" = 'match: "hello.js"'
+          printf '%s\n' '{"hello.js":"sha384-invalid","../README.md":"sha384-invalid"}' > "$temp_dir/invalid-root.json"
+          status=0
+          report="$(run_cli check-manifest --root examples "$temp_dir/invalid-root.json")" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
           run_cli diff-manifest "$temp_dir/rooted.json" "$temp_dir/rooted.json"
           printf '%s\n' '{"style.css":"sha384-new","hello.js":"sha384-updated"}' > "$temp_dir/next.json"
           status=0
