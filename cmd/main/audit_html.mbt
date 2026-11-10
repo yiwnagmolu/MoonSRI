@@ -1,4 +1,11 @@
 ///|
+priv struct AuditRun {
+  prefix : String
+  minimum : @sri.Algorithm?
+  verdicts : Map[(String, String), (Int32, String)]
+}
+
+///|
 fn run_audit_html(args : ArrayView[String]) -> Int32 {
   let mut root = None
   let mut json_output = false
@@ -40,9 +47,10 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
     return 2
   }
   let reports : Array[Json] = []
+  let run : AuditRun = { prefix, minimum, verdicts: Map([]), }
   let mut code = 0
   for page in args[index:] {
-    let (page_code, report) = audit_page(prefix, page, minimum, json_output)
+    let (page_code, report) = audit_page(run, page, json_output)
     if page_code > code {
       code = page_code
     }
@@ -58,9 +66,8 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
 
 ///|
 fn audit_page(
-  prefix : String,
+  run : AuditRun,
   page : String,
-  minimum : @sri.Algorithm?,
   json_output : Bool,
 ) -> (Int32, Json?) {
   let quoted = Json::string(page).stringify()
@@ -68,23 +75,24 @@ fn audit_page(
     eprintln("Expected a relative HTML page path: " + quoted)
     return (2, audit_report(page, "invalid_page_path", [], json_output))
   }
-  guard read_utf8_file(prefix + page, "HTML page") is Some(source) else {
+  guard read_utf8_file(run.prefix + page, "HTML page") is Some(source) else {
     return (2, audit_report(page, "read_error", [], json_output))
   }
   let doc = @audit.scan(source)
-  let directory = match doc.base_href {
-    None | Some("") =>
+  let base = doc.base_href.unwrap_or("").trim(chars=" \t\n\r\u{000c}")
+  let directory = match base {
+    "" =>
       match page.rev_split_once("/") {
         Some((parent, _)) => parent.to_owned()
         None => ""
       }
-    Some("/") => ""
-    Some(base) => {
+    "/" => ""
+    _ => {
       eprintln(
         "Unsupported base href in " +
         quoted +
         ": " +
-        Json::string(base).stringify(),
+        Json::string(base.to_owned()).stringify(),
       )
       return (2, audit_report(page, "unsupported_base", [], json_output))
     }
@@ -93,7 +101,7 @@ fn audit_page(
   let mut code = 0
   for reference in doc.references {
     let (resource_code, status, path) = audit_reference(
-      prefix, directory, reference, minimum,
+      run, directory, reference,
     )
     if resource_code > code {
       code = resource_code
@@ -166,10 +174,9 @@ fn audit_report(
 
 ///|
 fn audit_reference(
-  prefix : String,
+  run : AuditRun,
   directory : String,
   reference : @audit.Reference,
-  minimum : @sri.Algorithm?,
 ) -> (Int32, String, String?) {
   match resolve_audit_path(directory, reference.url) {
     External => (0, "external", None)
@@ -179,11 +186,16 @@ fn audit_reference(
       if integrity.trim(chars=" \t\n\r\u{000c}").is_empty() {
         return (1, "missing_integrity", Some(path))
       }
+      let key = (path, integrity)
+      if run.verdicts.get(key) is Some((code, status)) {
+        return (code, status, Some(path))
+      }
       let (code, status, _) = check_file_metadata(
-        prefix + path,
+        run.prefix + path,
         integrity,
-        minimum,
+        run.minimum,
       )
+      run.verdicts[key] = (code, status)
       (code, status, Some(path))
     }
   }

@@ -149,7 +149,7 @@ jobs:
           cp examples/hello.js "$site/app main.js"
           cp examples/style.css "$site/style.css"
           run_cli tag script examples/hello.js '../app%20main.js?v=1' > "$site/docs/ok.html"
-          printf '%s\n' '<base href="/">' > "$site/docs/base.html"
+          printf '%s\n' '<base href=" / ">' > "$site/docs/base.html"
           run_cli tag script examples/hello.js 'app%20main.js' >> "$site/docs/base.html"
           report="$(run_cli audit-html --root "$site" --json docs/ok.html docs/base.html)"
           node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages.some(p => p.status !== "ok" || p.resources.length !== 1 || p.resources[0].status !== "match" || p.resources[0].path !== "app main.js")) process.exit(1)' <<< "$report"

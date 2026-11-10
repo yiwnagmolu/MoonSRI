@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.3.0](https://img.shields.io/badge/version-0.3.0-blue)](CHANGELOG.md)
+[![版本 0.3.1](https://img.shields.io/badge/version-0.3.1-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -70,6 +70,8 @@ moon run cmd/main --target wasm -- audit-html --root dist --json --min-algorithm
 页面参数是相对于 `--root` 的文件路径。相对资源 URL 从页面目录解析，以 `/` 开头的 URL 从部署根目录解析。支持 UTF-8 百分号编码，校验时只使用路径部分。`<base href="/">` 也会让相对 URL 从部署根目录解析。
 
 JSON 输出是按输入顺序排列的页面数组。每页包含 `page`、`status` 和 `resources`，资源条目记录 `kind`、`url`、`status`，并在可定位到本地文件时提供 `path`。绝对 HTTP(S) 地址和以 `//` 开头的地址标为 `external`，跳过校验。
+
+同一次审计中，解析到同一本地路径且 `integrity` 相同的引用共享校验结果。每个引用仍出现在所属页面的报告中。
 
 退出码 `0` 表示没有审计失败项，`1` 表示本地资源缺少摘要、摘要不匹配或低于算法要求，`2` 表示读取失败、没有受支持算法、URL 无法解析为本地文件或页面含不支持的 `base href`。多个页面中以最高退出码为准。审计范围是静态 HTML 引用，URL 与文件的映射以传入的部署目录为准。
 
@@ -142,7 +144,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.3.0
+moon add yiwnagmolu/moonsri@0.3.1
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：
