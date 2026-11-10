@@ -19,7 +19,7 @@ pub(all) struct Document {
 
 ///|
 /// Collect static script and stylesheet references from HTML in DOM order.
-/// Templates and noscript content are inert with scripting enabled.
+/// Templates, noscript content, and disabled stylesheets are skipped.
 pub fn scan(source : String) -> Document {
   let doc = @html5.parse_with_scripting(source)
   let references = []
@@ -44,6 +44,7 @@ pub fn scan(source : String) -> Document {
     } else if doc.is_html_element(node, "link") {
       if doc.get_attribute(node, "rel") is Some(rel) &&
         has_stylesheet_rel(rel) &&
+        doc.get_attribute(node, "disabled") is None &&
         doc.get_attribute(node, "href") is Some(url) {
         references.push({
           kind: Stylesheet,

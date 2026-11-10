@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.4.0](https://img.shields.io/badge/version-0.4.0-blue)](CHANGELOG.md)
+[![版本 0.5.0](https://img.shields.io/badge/version-0.5.0-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -61,7 +61,7 @@ moon run cmd/main --target wasm -- tag stylesheet examples/style.css /assets/sty
 
 ## 审计部署后的 HTML
 
-`audit-html` 读取部署目录中的 UTF-8 HTML，检查页面实际写入的 `script[src]` 与 `link[rel=stylesheet][href]` 是否带有 `integrity`，并用本地资源字节校验摘要。可以一次检查多个页面，也可以设置最低算法强度。
+`audit-html` 读取部署目录中的 UTF-8 HTML，检查静态 `script[src]` 与未禁用的 `link[rel=stylesheet][href]` 是否带有 `integrity`，并用本地资源字节校验摘要。可以一次检查多个页面，也可以设置最低算法强度。
 
 ```sh
 moon run cmd/main --target wasm -- audit-html --root dist --json --min-algorithm sha384 index.html docs/index.html
@@ -93,6 +93,18 @@ moon run cmd/main --target wasm -- audit-html --root dist --baseline approved-in
 ```
 
 报告保留资源原有的 `status`，并为本地引用增加 `baseline.declaration` 和 `baseline.content`。声明可能为 `match`、`drift` 或 `untracked`，内容可能为 `match`、`mismatch`、`read_error`、`below_minimum` 或 `not_checked`。比较声明时只看最强算法及去重后的摘要集合，所以摘要顺序和重复项不影响结果。未登记的本地引用和任何基线偏差都会让审计失败。审计范围以本次传入页面的静态本地引用为准，基线文件的真实性由发布流程保证。
+
+### 比较两次发布的 HTML 引用
+
+在部署前比较两次构建的同名页面。即使两次 `audit-html` 都通过，`diff-html` 仍能报告删除的脚本、新增的样式表、有效 SRI 声明变化和共同引用在 DOM 中的相对顺序变化。
+
+```sh
+moon run cmd/main --target wasm -- diff-html --before-root previous-dist --after-root dist --json index.html docs/index.html
+```
+
+本地引用按类型、解析后的文件路径及原样保留的查询参数和片段匹配。外部 HTTP(S) 引用按去除首尾空白后的 URL 文本匹配。同一键的重复引用按出现顺序配对。有效 SRI 摘要的重排、重复项和弱于最强算法的摘要变化不会产生差异。
+
+JSON 按输入页面顺序输出 `added`、`removed`、`integrity_changed` 和 `order_changed`。条目的 `position` 从 1 开始，顺序变化时还提供 `before_order` 和 `after_order`。退出码 `0` 表示无变化，`1` 表示有变化，`2` 表示参数或任一页面输入有误。页面需在两份构建里都存在。此命令比较静态 HTML 声明和 DOM 顺序，资源字节交给 `audit-html` 校验，脚本运行时的执行顺序由浏览器决定。
 
 ## 批量生成与校验
 
@@ -157,7 +169,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.4.0
+moon add yiwnagmolu/moonsri@0.5.0
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：

@@ -92,23 +92,9 @@ fn audit_page(
   json_output : Bool,
 ) -> (Int32, Json?) {
   let quoted = Json::string(page).stringify()
-  guard is_portable_relative_path(page) else {
-    eprintln("Expected a relative HTML page path: " + quoted)
-    return (2, audit_report(page, "invalid_page_path", [], json_output))
-  }
-  guard read_utf8_file(run.prefix + page, "HTML page") is Some(source) else {
-    return (2, audit_report(page, "read_error", [], json_output))
-  }
-  let doc = @audit.scan(source)
-  let base = doc.base_href.unwrap_or("")
-  guard audit_base_directory(page, base) is Some(directory) else {
-    eprintln(
-      "Unsupported base href in " +
-      quoted +
-      ": " +
-      Json::string(base).stringify(),
-    )
-    return (2, audit_report(page, "unsupported_base", [], json_output))
+  let (directory, doc) = match read_audit_page(run.prefix, page) {
+    Ok(input) => input
+    Err(status) => return (2, audit_report(page, status, [], json_output))
   }
   let resources : Array[Json] = []
   let mut code = 0
@@ -117,10 +103,7 @@ fn audit_page(
     if finding.code > code {
       code = finding.code
     }
-    let kind = match reference.kind {
-      @audit.Script => "script"
-      @audit.Stylesheet => "stylesheet"
-    }
+    let kind = audit_kind(reference.kind)
     if json_output {
       let entry = Map([
         ("kind", Json::string(kind)),
@@ -177,6 +160,41 @@ fn audit_page(
       json_output,
     ),
   )
+}
+
+///|
+fn read_audit_page(
+  prefix : String,
+  page : String,
+) -> Result[(String, @audit.Document), String] {
+  let quoted = Json::string(page).stringify()
+  guard is_portable_relative_path(page) else {
+    eprintln("Expected a relative HTML page path: " + quoted)
+    return Err("invalid_page_path")
+  }
+  guard read_utf8_file(prefix + page, "HTML page") is Some(source) else {
+    return Err("read_error")
+  }
+  let doc = @audit.scan(source)
+  let base = doc.base_href.unwrap_or("")
+  guard audit_base_directory(page, base) is Some(directory) else {
+    eprintln(
+      "Unsupported base href in " +
+      quoted +
+      ": " +
+      Json::string(base).stringify(),
+    )
+    return Err("unsupported_base")
+  }
+  Ok((directory, doc))
+}
+
+///|
+fn audit_kind(kind : @audit.ResourceKind) -> String {
+  match kind {
+    @audit.Script => "script"
+    @audit.Stylesheet => "stylesheet"
+  }
 }
 
 ///|

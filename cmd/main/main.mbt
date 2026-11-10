@@ -16,6 +16,9 @@ fn usage() -> Unit {
     "       moonsri audit-html --root dir [--baseline manifest.json] [--json] [--min-algorithm algorithm] [--] <page>...",
   )
   eprintln(
+    "       moonsri diff-html --before-root dir --after-root dir [--json] [--] <page>...",
+  )
+  eprintln(
     "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",
   )
 }
@@ -29,7 +32,8 @@ fn is_command(arg : String) -> Bool {
     | "manifest"
     | "check-manifest"
     | "diff-manifest"
-    | "audit-html" => true
+    | "audit-html"
+    | "diff-html" => true
     _ => false
   }
 }
@@ -95,6 +99,7 @@ fn run(args : Array[String]) -> Int32 {
     "check-manifest" => return run_check_manifest(operands)
     "diff-manifest" => return run_diff_manifest(operands)
     "audit-html" => return run_audit_html(operands)
+    "diff-html" => return run_diff_html(operands)
     _ => ()
   }
   if (command == "generate" && (operands.length() < 1 || operands.length() > 2)) ||

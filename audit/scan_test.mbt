@@ -8,6 +8,7 @@ test "scan finds active static references and decodes HTML attributes" {
     #|<template><base href="/inert/"><script src="template.js"></script></template>
     #|<noscript><link rel="stylesheet" href="noscript.css"></noscript>
     #|<script type="MODULE" src="app.js?a=1&amp;b=2" integrity="sha384-known"></script>
+    #|<link rel="stylesheet" href="inactive.css" disabled="false">
     #|<link rel="alternate&#9;StyleSheet" href="theme.css">
   let page = @audit.scan(source)
   assert_true(page.base_href is None)

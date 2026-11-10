@@ -198,3 +198,55 @@ jobs:
           report="$(run_cli audit-html --root "$site" --baseline "$baseline" --json docs/rebuilt.html docs/untracked.html)" || status=$?
           test "$status" -eq 1
           node -e 'const [rebuilt, untracked] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); const a = rebuilt.resources[0], b = untracked.resources[0]; if (a.status !== "match" || a.baseline.declaration !== "drift" || a.baseline.content !== "mismatch" || b.baseline.declaration !== "untracked" || b.baseline.content !== "not_checked") process.exit(1)' <<< "$report"
+
+      - name: HTML reference diff smoke test
+        shell: bash
+        run: |
+          run_cli() {
+            moon run cmd/main --target ${{ matrix.target }} -- "$@"
+          }
+          site="$(mktemp -d)"
+          trap 'rm -rf -- "$site"' EXIT
+          before="$site/before"
+          after="$site/after"
+          for root in "$before" "$after"; do
+            mkdir -p "$root/docs"
+            cp examples/hello.js "$root/app.js"
+            cp examples/hello.js "$root/optional.js"
+            cp examples/style.css "$root/style.css"
+          done
+          old="$(run_cli generate "$before/app.js" sha384)"
+          new="$(run_cli generate "$after/app.js" sha512)"
+          css="$(run_cli tag stylesheet "$before/style.css" '/style.css')"
+          printf '<script src="../app.js" integrity="%s"></script>\n%s\n<script src="../optional.js" integrity="%s"></script>\n' "$old" "$css" "$old" > "$before/docs/index.html"
+          printf '%s\n<script src="/app.js" integrity="%s"></script>\n<script src="/optional.js?v=2" integrity="%s"></script>\n' "$css" "$new" "$old" > "$after/docs/index.html"
+          printf '<script src="../app.js?v=1#main" integrity="%s"></script>\n' "$old" > "$before/docs/same.html"
+          printf '<base href="/"><script src="app.js?v=1#main" integrity="%s %s"></script>\n' "${old/sha384/SHA384}" "$old" > "$after/docs/same.html"
+          cp "$before/docs/same.html" "$before/docs/missing.html"
+
+          run_cli audit-html --root "$before" docs/index.html docs/same.html
+          run_cli audit-html --root "$after" docs/index.html docs/same.html
+          run_cli diff-html --before-root "$before" --after-root "$after" docs/same.html
+          status=0
+          report="$(run_cli diff-html --before-root "$before" --after-root "$after" --json docs/same.html docs/index.html)" || status=$?
+          test "$status" -eq 1
+          DIFF_REPORT="$report" node <<'NODE'
+          const assert = require("node:assert/strict");
+          const [same, changed] = JSON.parse(process.env.DIFF_REPORT);
+          assert.equal(same.status, "unchanged");
+          assert.equal(changed.status, "changed");
+          assert.equal(changed.removed[0].url, "../optional.js");
+          assert.equal(changed.added[0].url, "/optional.js?v=2");
+          assert.equal(changed.integrity_changed.length, 1);
+          const update = changed.integrity_changed[0];
+          assert.equal(update.before.position, 1);
+          assert.equal(update.after.position, 2);
+          assert.equal(update.after.path, "app.js");
+          assert.equal(changed.order_changed, true);
+          assert.equal(changed.before_order[0].kind, "script");
+          assert.equal(changed.after_order[0].kind, "stylesheet");
+          NODE
+          status=0
+          report="$(run_cli diff-html --before-root "$before" --after-root "$after" --json docs/index.html docs/missing.html)" || status=$?
+          test "$status" -eq 2
+          node -e 'const [changed, missing] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (changed.status !== "changed" || missing.status !== "error" || missing.after_error !== "read_error") process.exit(1)' <<< "$report"

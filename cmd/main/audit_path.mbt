@@ -61,14 +61,7 @@ fn resolve_audit_path(directory : String, raw_url : String) -> AuditPath {
       External
     }
   }
-  let path = match url.split_once("#") {
-    Some((path, _)) => path
-    None => url
-  }
-  let path = match path.split_once("?") {
-    Some((path, _)) => path
-    None => path
-  }
+  let (path, _) = audit_url_parts(url)
   if path.is_empty() {
     return SameDocument
   }
@@ -109,6 +102,14 @@ fn resolve_audit_path(directory : String, raw_url : String) -> AuditPath {
     Local(segments.join("/"))
   } else {
     Directory(segments.join("/"))
+  }
+}
+
+///|
+fn audit_url_parts(url : StringView) -> (StringView, StringView) {
+  match url.find_by(ch => ch == '?' || ch == '#') {
+    Some(offset) => (url.exact_view(end=offset), url.exact_view(start=offset))
+    None => (url, ""[:])
   }
 }
 
