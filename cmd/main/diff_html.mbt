@@ -55,11 +55,12 @@ fn run_diff_html(args : ArrayView[String]) -> Int32 {
 }
 
 ///|
-fn load_diff_plan(
+fn build_diff_plan(
   prefix : String,
   page : String,
+  source : String,
 ) -> Result[Array[PlanResource], String] {
-  let (directory, doc) = match read_audit_page(prefix, page) {
+  let (directory, doc) = match parse_audit_page(page, source) {
     Ok(input) => input
     Err(reason) => return Err(reason)
   }
@@ -103,8 +104,20 @@ fn diff_html_page(
   page : String,
   json_output : Bool,
 ) -> (Int32, Json?) {
-  let before = load_diff_plan(before_root, page)
-  let after = load_diff_plan(after_root, page)
+  let before_source = read_audit_source(before_root, page)
+  let before = match before_source {
+    Ok(source) => build_diff_plan(before_root, page, source)
+    Err(reason) => Err(reason)
+  }
+  let after = match read_audit_source(after_root, page) {
+    Ok(source) =>
+      if before is Ok(_) && before_source is Ok(original) && original == source {
+        before
+      } else {
+        build_diff_plan(after_root, page, source)
+      }
+    Err(reason) => Err(reason)
+  }
   guard before is Ok(before_plan) && after is Ok(after_plan) else {
     if !json_output {
       return (2, None)

@@ -71,7 +71,7 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
         return 2
       }
     }
-    manifest[path] = generate_metadata(data[:], algorithms)
+    manifest[path] = generate_metadata(data, algorithms)
   }
   let output = @manifest.encode(manifest) catch {
     error => {
@@ -273,5 +273,5 @@ fn check_file_metadata(
   let bytes = @fs.read_file_to_bytes(asset) catch {
     _ => return (2, "read_error", "Cannot read file")
   }
-  check_metadata(bytes[:], integrity, minimum)
+  check_metadata(bytes, integrity, minimum)
 }

@@ -38,6 +38,14 @@ fn diff_plan(
   before : Array[PlanResource],
   after : Array[PlanResource],
 ) -> PlanDiff {
+  if physical_equal(before, after) {
+    return {
+      added: [],
+      removed: [],
+      integrity_changed: [],
+      order_changed: false,
+    }
+  }
   let positions : Map[(String, String?, String), Array[Int32]] = Map([])
   for index, resource in before {
     let key = resource.key()

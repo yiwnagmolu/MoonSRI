@@ -31,7 +31,7 @@ fn run_tag(args : ArrayView[String]) -> Int32 {
     }
   }
   let escaped_url = escape_html_attribute(url)
-  let metadata = generate_metadata(bytes[:], algorithms)
+  let metadata = generate_metadata(bytes, algorithms)
   let attributes = "\" integrity=\"" + metadata + "\" crossorigin=\"anonymous\""
   if kind == "script" {
     println("<script src=\"" + escaped_url + attributes + "></script>")

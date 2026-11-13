@@ -232,6 +232,8 @@ jobs:
           printf '<script src="../app.js?v=1#main" integrity="%s"></script>\n' "$old" > "$before/docs/same.html"
           printf '<base href="/"><script src="app.js?v=1#main" integrity="%s %s"></script>\n' "${old/sha384/SHA384}" "$old" > "$after/docs/same.html"
           cp "$before/docs/same.html" "$before/docs/missing.html"
+          printf '%s\n' '<script src="/bad%zz.js"></script>' > "$before/docs/invalid.html"
+          cp "$before/docs/invalid.html" "$after/docs/invalid.html"
 
           run_cli audit-html --root "$before" docs/index.html docs/same.html
           run_cli audit-html --root "$after" docs/index.html docs/same.html
@@ -256,6 +258,6 @@ jobs:
           assert.equal(changed.after_order[0].kind, "stylesheet");
           NODE
           status=0
-          report="$(run_cli diff-html --before-root "$before" --after-root "$after" --json docs/index.html docs/missing.html)" || status=$?
+          report="$(run_cli diff-html --before-root "$before" --after-root "$after" --json docs/index.html docs/missing.html docs/invalid.html)" || status=$?
           test "$status" -eq 2
-          node -e 'const [changed, missing] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (changed.status !== "changed" || missing.status !== "error" || missing.after_error !== "read_error") process.exit(1)' <<< "$report"
+          node -e 'const [changed, missing, invalid] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (changed.status !== "changed" || missing.status !== "error" || missing.after_error !== "read_error" || invalid.status !== "error" || invalid.before_error !== "invalid_url" || invalid.after_error !== "invalid_url") process.exit(1)' <<< "$report"

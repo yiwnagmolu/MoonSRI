@@ -70,10 +70,10 @@ fn parse_algorithms(input : String) -> Array[@sri.Algorithm]? {
 
 ///|
 fn generate_metadata(
-  data : BytesView,
+  data : Bytes,
   algorithms : Array[@sri.Algorithm],
 ) -> String {
-  algorithms.map(algorithm => @sri.generate(data, algorithm)).join(" ")
+  algorithms.map(algorithm => generate_cli_token(data, algorithm)).join(" ")
 }
 
 ///|
@@ -131,10 +131,10 @@ fn run(args : Array[String]) -> Int32 {
     }
   }
   if command == "generate" {
-    println(generate_metadata(data[:], algorithms))
+    println(generate_metadata(data, algorithms))
     return 0
   }
-  let (code, _, message) = check_metadata(data[:], operands[1], minimum)
+  let (code, _, message) = check_metadata(data, operands[1], minimum)
   println(message)
   code
 }
@@ -150,14 +150,15 @@ fn parse_minimum(name : String) -> @sri.Algorithm? {
 
 ///|
 fn check_metadata(
-  bytes : BytesView,
+  bytes : Bytes,
   integrity : String,
   minimum : @sri.Algorithm?,
 ) -> (Int32, String, String) {
-  let verdict = match minimum {
-    Some(algorithm) => @sri.verify_bytes_at_least(bytes, integrity, algorithm)
-    None => Ok(@sri.verify_bytes(bytes, integrity))
-  }
+  let verdict = @sri.verify_with_token(
+    integrity,
+    algorithm => generate_cli_token(bytes, algorithm),
+    minimum~,
+  )
   describe_verification(verdict)
 }
 

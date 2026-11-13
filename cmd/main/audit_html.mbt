@@ -176,20 +176,37 @@ fn read_audit_page(
   prefix : String,
   page : String,
 ) -> Result[(String, @audit.Document), String] {
-  let quoted = Json::string(page).stringify()
+  match read_audit_source(prefix, page) {
+    Ok(source) => parse_audit_page(page, source)
+    Err(reason) => Err(reason)
+  }
+}
+
+///|
+fn read_audit_source(prefix : String, page : String) -> Result[String, String] {
   guard is_portable_relative_path(page) else {
-    eprintln("Expected a relative HTML page path: " + quoted)
+    eprintln(
+      "Expected a relative HTML page path: " + Json::string(page).stringify(),
+    )
     return Err("invalid_page_path")
   }
   guard read_utf8_file(prefix + page, "HTML page") is Some(source) else {
     return Err("read_error")
   }
+  Ok(source)
+}
+
+///|
+fn parse_audit_page(
+  page : String,
+  source : String,
+) -> Result[(String, @audit.Document), String] {
   let doc = @audit.scan(source)
   let base = doc.base_href.unwrap_or("")
   guard audit_base_directory(page, base) is Some(directory) else {
     eprintln(
       "Unsupported base href in " +
-      quoted +
+      Json::string(page).stringify() +
       ": " +
       Json::string(base).stringify(),
     )
@@ -300,7 +317,7 @@ fn AuditRun::verify_file_with_cached_tokens(
         Some(bytes) => bytes
         None => @fs.read_file_to_bytes(file)
       }
-      let token = @sri.generate(bytes[:], algorithm)
+      let token = generate_cli_token(bytes, algorithm)
       self.tokens[key] = token
       token
     },
