@@ -296,35 +296,23 @@ fn AuditRun::verify_file_with_cached_tokens(
   integrity : String,
 ) -> (Int32, String) {
   let file = self.prefix + path
-  // Keep read_error ahead of metadata errors, including for unsupported tokens.
-  let initial_bytes = if self.readable_paths.contains(path) {
-    None
-  } else {
-    let bytes = @fs.read_file_to_bytes(file) catch {
-      _ => return (2, "read_error")
-    }
-    self.readable_paths.add(path)
-    Some(bytes)
-  }
-  let verification = @sri.verify_with_token(
-    integrity,
-    algorithm => {
+  let (code, status, _) = check_metadata(integrity, self.minimum, algorithms => {
+    if algorithms.get(0) is Some(algorithm) {
       let key = (path, algorithm)
       if self.tokens.get(key) is Some(token) {
         return token
       }
-      let bytes = match initial_bytes {
-        Some(bytes) => bytes
-        None => @fs.read_file_to_bytes(file)
-      }
-      let token = generate_cli_token(bytes, algorithm)
+      let token = generate_file_metadata(file, algorithms)
       self.tokens[key] = token
+      self.readable_paths.add(path)
       token
-    },
-    minimum=self.minimum,
-  ) catch {
-    _ => return (2, "read_error")
-  }
-  let (code, status, _) = describe_verification(verification)
+    } else {
+      if !self.readable_paths.contains(path) {
+        ignore(generate_file_metadata(file, algorithms))
+        self.readable_paths.add(path)
+      }
+      ""
+    }
+  })
   (code, status)
 }

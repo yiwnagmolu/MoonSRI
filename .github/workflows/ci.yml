@@ -27,8 +27,34 @@ jobs:
           actual="$(moon run cmd/main --target ${{ matrix.target }} -- generate examples/hello.js)"
           test "$actual" = "$expected"
           moon run cmd/main --target ${{ matrix.target }} -- check examples/hello.js "$expected"
+
+          work="$(mktemp -d)"
+          trap 'rm -rf -- "$work"' EXIT
+          binary="$work/binary input.js"
+          expected="$(node - "$binary" <<'NODE'
+          const fs = require("node:fs");
+          const { createHash } = require("node:crypto");
+          const data = Buffer.alloc(2 * 65536 + 17);
+          for (let index = 0; index < data.length; index++) {
+            data[index] = index % 251;
+          }
+          fs.writeFileSync(process.argv[2], data);
+          console.log(["sha512", "sha256", "sha384"].map(
+            name => name + "-" + createHash(name).update(data).digest("base64")
+          ).join(" "));
+          NODE
+          )"
+          actual="$(moon run cmd/main --target ${{ matrix.target }} -- generate "$binary" sha512,sha256,sha384)"
+          test "$actual" = "$expected"
+          moon run cmd/main --target ${{ matrix.target }} -- check "$binary" "$expected"
+
           diagnostics="$(mktemp)"
-          trap 'rm -f -- "$diagnostics"' EXIT
+          trap 'rm -f -- "$diagnostics"; rm -rf -- "$work"' EXIT
+          status=0
+          rejected="$(moon run cmd/main --target ${{ matrix.target }} -- check "$work" sha999-invalid 2>"$diagnostics")" || status=$?
+          test "$status" -eq 2
+          test -z "$rejected"
+          [[ "$(<"$diagnostics")" == *'Cannot read file:'* ]]
           status=0
           rejected="$(moon run cmd/main --target ${{ matrix.target }} -- typo generate examples/hello.js 2>"$diagnostics")" || status=$?
           test "$status" -eq 2

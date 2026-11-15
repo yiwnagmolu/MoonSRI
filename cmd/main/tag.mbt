@@ -24,14 +24,13 @@ fn run_tag(args : ArrayView[String]) -> Int32 {
     [@sri.Sha384]
   }
   let path = args[1]
-  let bytes = @fs.read_file_to_bytes(path) catch {
+  let metadata = generate_file_metadata(path, algorithms) catch {
     _ => {
       eprintln("Cannot read file: " + Json::string(path).stringify())
       return 2
     }
   }
   let escaped_url = escape_html_attribute(url)
-  let metadata = generate_metadata(bytes, algorithms)
   let attributes = "\" integrity=\"" + metadata + "\" crossorigin=\"anonymous\""
   if kind == "script" {
     println("<script src=\"" + escaped_url + attributes + "></script>")

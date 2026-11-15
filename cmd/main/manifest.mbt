@@ -65,13 +65,13 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
       return 2
     }
     let file = asset_file(root, path)
-    let data = @fs.read_file_to_bytes(file) catch {
+    let metadata = generate_file_metadata(file, algorithms) catch {
       _ => {
         eprintln("Cannot read file: " + quoted_path)
         return 2
       }
     }
-    manifest[path] = generate_metadata(data, algorithms)
+    manifest[path] = metadata
   }
   let output = @manifest.encode(manifest) catch {
     error => {
@@ -270,8 +270,7 @@ fn check_file_metadata(
   integrity : String,
   minimum : @sri.Algorithm?,
 ) -> (Int32, String, String) {
-  let bytes = @fs.read_file_to_bytes(asset) catch {
-    _ => return (2, "read_error", "Cannot read file")
-  }
-  check_metadata(bytes, integrity, minimum)
+  check_metadata(integrity, minimum, algorithms => {
+    generate_file_metadata(asset, algorithms)
+  })
 }

@@ -69,14 +69,6 @@ fn parse_algorithms(input : String) -> Array[@sri.Algorithm]? {
 }
 
 ///|
-fn generate_metadata(
-  data : Bytes,
-  algorithms : Array[@sri.Algorithm],
-) -> String {
-  algorithms.map(algorithm => generate_cli_token(data, algorithm)).join(" ")
-}
-
-///|
 // Node includes the executable and script path. Moon's other hosts pass one
 // executable prefix.
 #cfg(target="js")
@@ -124,18 +116,22 @@ fn run(args : Array[String]) -> Int32 {
     None
   }
   let path = operands[0]
-  let data = @fs.read_file_to_bytes(path) catch {
-    _ => {
-      eprintln("Cannot read file: " + Json::string(path).stringify())
-      return 2
-    }
-  }
   if command == "generate" {
-    println(generate_metadata(data, algorithms))
+    let metadata = generate_file_metadata(path, algorithms) catch {
+      _ => {
+        eprintln("Cannot read file: " + Json::string(path).stringify())
+        return 2
+      }
+    }
+    println(metadata)
     return 0
   }
-  let (code, _, message) = check_metadata(data, operands[1], minimum)
-  println(message)
+  let (code, status, message) = check_file_metadata(path, operands[1], minimum)
+  if status == "read_error" {
+    eprintln(message + ": " + Json::string(path).stringify())
+  } else {
+    println(message)
+  }
   code
 }
 
@@ -150,16 +146,24 @@ fn parse_minimum(name : String) -> @sri.Algorithm? {
 
 ///|
 fn check_metadata(
-  bytes : Bytes,
   integrity : String,
   minimum : @sri.Algorithm?,
+  generate : (Array[@sri.Algorithm]) -> String raise,
 ) -> (Int32, String, String) {
-  let verdict = @sri.verify_with_token(
-    integrity,
-    algorithm => generate_cli_token(bytes, algorithm),
-    minimum~,
-  )
-  describe_verification(verdict)
+  try {
+    let verdict = @sri.verify_with_token(
+      integrity,
+      algorithm => generate([algorithm]),
+      minimum~,
+    )
+    // Check readability even when the declaration did not need a digest.
+    if verdict is Err(_) || verdict is Ok(@sri.NoSupportedMetadata) {
+      ignore(generate([]))
+    }
+    describe_verification(verdict)
+  } catch {
+    _ => (2, "read_error", "Cannot read file")
+  }
 }
 
 ///|
