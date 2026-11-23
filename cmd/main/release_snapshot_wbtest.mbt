@@ -105,3 +105,17 @@ test "mixed pages produce a sorted union and exclude still-referenced assets fro
   assert_true(assets.get("assets/app.v2.js") is Some(@rollout.Publish))
   assert_eq(retained, ["assets/app.js"])
 }
+
+///|
+test "release comparison reuses qualified SHA-512 tokens from both snapshots" {
+  let path = "already-hashed.js"
+  let key = (path, @sri.Sha512)
+  let before : ReleaseFiles = {
+    prefix: "",
+    tokens: Map([(key, "sha512-old")]),
+  }
+  let after : ReleaseFiles = { prefix: "", tokens: Map([(key, "sha512-old")]), }
+  assert_true(before.same_asset(after, path))
+  after.tokens[key] = "sha512-new"
+  assert_false(before.same_asset(after, path))
+}

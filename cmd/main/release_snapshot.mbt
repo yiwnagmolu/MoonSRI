@@ -88,6 +88,20 @@ fn ReleaseFiles::matches(
 }
 
 ///|
+fn ReleaseFiles::same_asset(
+  before : ReleaseFiles,
+  after : ReleaseFiles,
+  path : String,
+) -> Bool raise {
+  let key = (path, @sri.Sha512)
+  if before.tokens.get(key) is Some(previous) &&
+    after.tokens.get(key) is Some(current) {
+    return previous == current
+  }
+  before.token(path, @sri.Sha384) == after.token(path, @sri.Sha384)
+}
+
+///|
 /// A retained file cannot also be a directory for a different release path.
 fn release_path_conflict(
   paths : Array[String],
@@ -222,7 +236,24 @@ fn collect_release_inputs(
     )
   }
   let assets : Map[String, @rollout.AssetChange] = Map([])
-  let analyzed_paths : Set[String] = Set([])
+  for path in ordered_paths {
+    if !after_paths.contains(path) {
+      continue
+    }
+    if !before_paths.contains(path) {
+      assets[path] = @rollout.Publish
+      continue
+    }
+    let unchanged = before_files.same_asset(after_files, path) catch {
+      _ =>
+        return Err(
+          "cannot compare release asset " + Json::string(path).stringify(),
+        )
+    }
+    if !unchanged {
+      assets[path] = @rollout.Replace
+    }
+  }
   let result : Array[@rollout.Page] = []
   for page in pages {
     let before_refs = before.get(page).unwrap_or([])
@@ -230,7 +261,7 @@ fn collect_release_inputs(
     let before_cross : Map[String, Bool] = Map([])
     let after_cross : Map[String, Bool] = Map([])
     for reference in before_refs {
-      let compatible = if after_paths.contains(reference.path) {
+      let compatible = if assets.get(reference.path) is Some(@rollout.Replace) {
         after_files.matches(reference) catch {
           _ =>
             return Err(
@@ -249,47 +280,24 @@ fn collect_release_inputs(
         compatible
     }
     for reference in after_refs {
-      let compatible = if before_paths.contains(reference.path) {
-        before_files.matches(reference) catch {
-          _ =>
-            return Err(
-              "before asset cannot be read for page " +
-              Json::string(page).stringify() +
-              ": " +
-              Json::string(reference.path).stringify(),
-            )
-        }
-      } else {
-        false
+      let compatible = match assets.get(reference.path) {
+        Some(@rollout.Replace) =>
+          before_files.matches(reference) catch {
+            _ =>
+              return Err(
+                "before asset cannot be read for page " +
+                Json::string(page).stringify() +
+                ": " +
+                Json::string(reference.path).stringify(),
+              )
+          }
+        Some(@rollout.Publish) => false
+        None => true
       }
       after_cross[reference.path] = after_cross
         .get(reference.path)
         .unwrap_or(true) &&
         compatible
-      if !analyzed_paths.contains(reference.path) {
-        analyzed_paths.add(reference.path)
-        if !before_paths.contains(reference.path) {
-          assets[reference.path] = @rollout.Publish
-        } else {
-          let before_hash = before_files.token(reference.path, @sri.Sha384) catch {
-            _ =>
-              return Err(
-                "cannot read before asset " +
-                Json::string(reference.path).stringify(),
-              )
-          }
-          let after_hash = after_files.token(reference.path, @sri.Sha384) catch {
-            _ =>
-              return Err(
-                "cannot read after asset " +
-                Json::string(reference.path).stringify(),
-              )
-          }
-          if before_hash != after_hash {
-            assets[reference.path] = @rollout.Replace
-          }
-        }
-      }
     }
     result.push({ path: page, before: before_cross, after: after_cross, })
   }
