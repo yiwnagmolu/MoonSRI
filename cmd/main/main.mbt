@@ -19,6 +19,9 @@ fn usage() -> Unit {
     "       moonsri diff-html --before-root dir --after-root dir [--json] [--] <page>...",
   )
   eprintln(
+    "       moonsri review-release --before-root dir --after-root dir [--json] [--] <page>...",
+  )
+  eprintln(
     "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",
   )
 }
@@ -33,7 +36,8 @@ fn is_command(arg : String) -> Bool {
     | "check-manifest"
     | "diff-manifest"
     | "audit-html"
-    | "diff-html" => true
+    | "diff-html"
+    | "review-release" => true
     _ => false
   }
 }
@@ -92,6 +96,7 @@ fn run(args : Array[String]) -> Int32 {
     "diff-manifest" => return run_diff_manifest(operands)
     "audit-html" => return run_audit_html(operands)
     "diff-html" => return run_diff_html(operands)
+    "review-release" => return run_review_release(operands)
     _ => ()
   }
   if (command == "generate" && (operands.length() < 1 || operands.length() > 2)) ||

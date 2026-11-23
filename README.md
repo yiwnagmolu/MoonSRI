@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.5.3](https://img.shields.io/badge/version-0.5.3-blue)](CHANGELOG.md)
+[![版本 0.6.0](https://img.shields.io/badge/version-0.6.0-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
@@ -108,6 +108,22 @@ moon run cmd/main --target wasm -- diff-html --before-root previous-dist --after
 
 JSON 按输入页面顺序输出 `added`、`removed`、`integrity_changed` 和 `order_changed`。条目的 `position` 从 1 开始，顺序变化时还提供 `before_order` 和 `after_order`。退出码 `0` 表示无变化，`1` 表示有变化，`2` 表示参数或任一页面输入有误。页面需在两份构建里都存在。此命令比较静态 HTML 声明和 DOM 顺序，资源字节交给 `audit-html` 校验，脚本运行时的执行顺序由浏览器决定。
 
+### 规划分批发布顺序
+
+`review-release` 检查两个部署快照，推导怎样逐步发布资源、切换页面。即使新旧两个快照各自通过 SRI 校验，原地覆盖共享脚本也可能让发布中途的页面校验失败。
+
+```sh
+moon run cmd/main --target wasm -- review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --json index.html hours/index.html
+```
+
+MoonBit 先建立页面到本地脚本和样式表的引用关系，并校验两版各自的文件。旧页面若无法接受即将覆盖的字节，页面必须先切换。新页面若无法使用旧资源或资源尚未登记，资源必须先发布。规划器以页面和资源操作为节点，将这些约束连成有向图，再做分层拓扑排序。出现环时会给出一条首尾相接的冲突路径。
+
+退出码 `0` 表示有可行计划，按 `waves` 的顺序执行，每一批内的动作可独立完成。退出码 `1` 表示受约束阻塞，`cycle` 给出冲突路径，JSON 中的 `waves` 只记录已能排序的前缀。退出码 `2` 表示参数、页面或同侧完整性校验失败。JSON 的 `constraints` 列出所有直接的先后约束。
+
+请列出受发布影响的全部页面。同名页面需在两个快照中均存在。计划覆盖这些页面的静态本地脚本和样式表，按单文件原子替换建模。只在新版出现的资源按待发布处理，旧版仍可能用到的资源保留在部署目录。远程引用、缓存传播及浏览器运行时加载由站点发布流程处理。
+
+可以对照查看 [可复现的双页发布案例](examples/rollout/README.md)。
+
 ## 批量生成与校验
 
 在项目根目录列出要发布的资源，生成一份 JSON 清单：
@@ -171,7 +187,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.5.3
+moon add yiwnagmolu/moonsri@0.6.0
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：

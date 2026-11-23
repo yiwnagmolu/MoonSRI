@@ -1,5 +1,7 @@
 ///|
-fn run_diff_html(args : ArrayView[String]) -> Int32 {
+fn parse_release_args(
+  args : ArrayView[String],
+) -> (String, String, Bool, ArrayView[String])? {
   let mut before_root = None
   let mut after_root = None
   let mut json_output = false
@@ -7,12 +9,16 @@ fn run_diff_html(args : ArrayView[String]) -> Int32 {
   while index < args.length() {
     match args[index] {
       "--before-root" if before_root is None && index + 1 < args.length() => {
-        guard parse_root_prefix(args[index + 1]) is Some(root) else { return 2 }
+        guard parse_root_prefix(args[index + 1]) is Some(root) else {
+          return None
+        }
         before_root = Some(root)
         index += 2
       }
       "--after-root" if after_root is None && index + 1 < args.length() => {
-        guard parse_root_prefix(args[index + 1]) is Some(root) else { return 2 }
+        guard parse_root_prefix(args[index + 1]) is Some(root) else {
+          return None
+        }
         after_root = Some(root)
         index += 2
       }
@@ -26,7 +32,7 @@ fn run_diff_html(args : ArrayView[String]) -> Int32 {
       }
       option if option.has_prefix("--") => {
         usage()
-        return 2
+        return None
       }
       _ => break
     }
@@ -35,11 +41,19 @@ fn run_diff_html(args : ArrayView[String]) -> Int32 {
     after_root is Some(after) &&
     index < args.length() else {
     usage()
+    return None
+  }
+  Some((before, after, json_output, args[index:]))
+}
+
+///|
+fn run_diff_html(args : ArrayView[String]) -> Int32 {
+  guard parse_release_args(args) is Some((before, after, json_output, pages)) else {
     return 2
   }
   let reports : Array[Json] = []
   let mut code = 0
-  for page in args[index:] {
+  for page in pages {
     let (page_code, report) = diff_html_page(before, after, page, json_output)
     if page_code > code {
       code = page_code
