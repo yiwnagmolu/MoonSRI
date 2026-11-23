@@ -15,7 +15,12 @@ test "release collection preserves repeated references in a page" {
 ///|
 test "release collection rejects an endpoint with an incorrect declaration" {
   let pages = ["browser.html"]
-  let result = collect_release_inputs("examples/", "examples/", pages[:])
+  let result = collect_release_inputs(
+    "examples/",
+    "examples/",
+    pages[:],
+    pages[:],
+  )
   guard result is Err(reason) else {
     fail("expected a bad endpoint declaration to prevent planning")
   }
@@ -35,4 +40,68 @@ test "release paths reject files that must also be directories" {
   let unrelated = ["index.html", "assets/app.js", "assets/app.js-other/v2.js"]
   let all_unrelated = Set(unrelated)
   assert_true(release_path_conflict(unrelated, all_unrelated) is None)
+}
+
+///|
+test "new page uses only the after snapshot and publishes its assets" {
+  let before_pages : Array[String] = []
+  let after_pages = ["index.html"]
+  let result = collect_release_inputs(
+    "__missing_snapshot__/",
+    "examples/rollout/versioned/",
+    before_pages[:],
+    after_pages[:],
+  )
+  guard result is Ok((pages, assets, retained)) else {
+    fail("new page should not read from the before snapshot")
+  }
+  assert_eq(pages.length(), 1)
+  assert_eq(pages[0].path, "index.html")
+  assert_true(pages[0].before.is_empty())
+  assert_true(pages[0].after.get("assets/app.v2.js") is Some(false))
+  assert_true(assets.get("assets/app.v2.js") is Some(@rollout.Publish))
+  assert_true(assets.get("assets/site.css") is Some(@rollout.Publish))
+  assert_true(retained.is_empty())
+}
+
+///|
+test "retired page keeps its old-only assets without reading the after snapshot" {
+  let before_pages = ["index.html"]
+  let after_pages : Array[String] = []
+  let result = collect_release_inputs(
+    "examples/rollout/before/",
+    "__missing_snapshot__/",
+    before_pages[:],
+    after_pages[:],
+  )
+  guard result is Ok((pages, assets, retained)) else {
+    fail("retired page should not read from the after snapshot")
+  }
+  assert_eq(pages.length(), 1)
+  assert_eq(pages[0].path, "index.html")
+  assert_true(pages[0].after.is_empty())
+  assert_true(pages[0].before.get("assets/app.js") is Some(true))
+  assert_true(assets.is_empty())
+  assert_eq(retained, ["assets/app.js", "assets/site.css"])
+}
+
+///|
+test "mixed pages produce a sorted union and exclude still-referenced assets from retention" {
+  let before_pages = ["index.html", "hours/index.html"]
+  let after_pages = ["index.html"]
+  let result = collect_release_inputs(
+    "examples/rollout/before/",
+    "examples/rollout/versioned/",
+    before_pages[:],
+    after_pages[:],
+  )
+  guard result is Ok((pages, assets, retained)) else {
+    fail("expected to collect mixed release pages")
+  }
+  assert_eq(pages.length(), 2)
+  assert_eq(pages[0].path, "hours/index.html")
+  assert_true(pages[0].after.is_empty())
+  assert_eq(pages[1].path, "index.html")
+  assert_true(assets.get("assets/app.v2.js") is Some(@rollout.Publish))
+  assert_eq(retained, ["assets/app.js"])
 }

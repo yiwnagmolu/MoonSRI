@@ -1,9 +1,21 @@
 ///|
+priv struct ReleaseArgs {
+  before : String
+  after : String
+  json_output : Bool
+  pages : ArrayView[String]
+  inventories : (String, String)?
+}
+
+///|
 fn parse_release_args(
   args : ArrayView[String],
-) -> (String, String, Bool, ArrayView[String])? {
+  allow_inventories~ : Bool = false,
+) -> ReleaseArgs? {
   let mut before_root = None
   let mut after_root = None
+  let mut before_list = None
+  let mut after_list = None
   let mut json_output = false
   let mut index = 0
   while index < args.length() {
@@ -26,6 +38,18 @@ fn parse_release_args(
         json_output = true
         index += 1
       }
+      "--before-pages" if allow_inventories &&
+        before_list is None &&
+        index + 1 < args.length() => {
+        before_list = Some(args[index + 1])
+        index += 2
+      }
+      "--after-pages" if allow_inventories &&
+        after_list is None &&
+        index + 1 < args.length() => {
+        after_list = Some(args[index + 1])
+        index += 2
+      }
       "--" => {
         index += 1
         break
@@ -37,24 +61,34 @@ fn parse_release_args(
       _ => break
     }
   }
-  guard before_root is Some(before) &&
-    after_root is Some(after) &&
-    index < args.length() else {
+  guard before_root is Some(before) && after_root is Some(after) else {
     usage()
     return None
   }
-  Some((before, after, json_output, args[index:]))
+  let pages = args[index:]
+  let inventories = match (before_list, after_list) {
+    (Some(before), Some(after)) if pages.is_empty() => Some((before, after))
+    (None, None) if !pages.is_empty() => None
+    _ => {
+      usage()
+      return None
+    }
+  }
+  Some({ before, after, json_output, pages, inventories, })
 }
 
 ///|
 fn run_diff_html(args : ArrayView[String]) -> Int32 {
-  guard parse_release_args(args) is Some((before, after, json_output, pages)) else {
-    return 2
-  }
+  guard parse_release_args(args) is Some(options) else { return 2 }
   let reports : Array[Json] = []
   let mut code = 0
-  for page in pages {
-    let (page_code, report) = diff_html_page(before, after, page, json_output)
+  for page in options.pages {
+    let (page_code, report) = diff_html_page(
+      options.before,
+      options.after,
+      page,
+      options.json_output,
+    )
     if page_code > code {
       code = page_code
     }
@@ -62,7 +96,7 @@ fn run_diff_html(args : ArrayView[String]) -> Int32 {
       reports.push(report)
     }
   }
-  if json_output {
+  if options.json_output {
     println(Json::array(reports).stringify(indent=2))
   }
   code

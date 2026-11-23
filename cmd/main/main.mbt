@@ -22,6 +22,9 @@ fn usage() -> Unit {
     "       moonsri review-release --before-root dir --after-root dir [--json] [--] <page>...",
   )
   eprintln(
+    "       moonsri review-release --before-root dir --after-root dir --before-pages old.txt --after-pages new.txt [--json]",
+  )
+  eprintln(
     "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",
   )
 }

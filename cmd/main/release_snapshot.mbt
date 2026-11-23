@@ -112,13 +112,17 @@ fn release_path_conflict(
 fn collect_release_inputs(
   before_root : String,
   after_root : String,
-  pages : ArrayView[String],
-) -> Result[(Array[@rollout.Page], Map[String, @rollout.AssetChange]), String] {
-  let before = match load_release_pages(before_root, pages) {
+  before_pages : ArrayView[String],
+  after_pages : ArrayView[String],
+) -> Result[
+  (Array[@rollout.Page], Map[String, @rollout.AssetChange], Array[String]),
+  String,
+] {
+  let before = match load_release_pages(before_root, before_pages) {
     Ok(value) => value
     Err(reason) => return Err("before " + reason)
   }
-  let after = match load_release_pages(after_root, pages) {
+  let after = match load_release_pages(after_root, after_pages) {
     Ok(value) => value
     Err(reason) => return Err("after " + reason)
   }
@@ -129,18 +133,21 @@ fn collect_release_inputs(
   let page_paths : Set[String] = Set([])
   let all_paths : Set[String] = Set([])
   let ordered_paths : Array[String] = []
-  for page in pages {
+  for page in before_pages {
     page_paths.add(page)
-    if !all_paths.contains(page) {
-      all_paths.add(page)
-      ordered_paths.push(page)
-    }
+  }
+  for page in after_pages {
+    page_paths.add(page)
+  }
+  let pages = page_paths.iter().to_array()
+  pages.sort_by((left, right) => left.lexical_compare(right))
+  for page in pages {
+    all_paths.add(page)
+    ordered_paths.push(page)
   }
   for page in pages {
-    guard before.get(page) is Some(before_refs) &&
-      after.get(page) is Some(after_refs) else {
-      return Err("missing collected page " + Json::string(page).stringify())
-    }
+    let before_refs = before.get(page).unwrap_or([])
+    let after_refs = after.get(page).unwrap_or([])
     for reference in before_refs {
       if page_paths.contains(reference.path) {
         return Err(
@@ -218,10 +225,8 @@ fn collect_release_inputs(
   let analyzed_paths : Set[String] = Set([])
   let result : Array[@rollout.Page] = []
   for page in pages {
-    guard before.get(page) is Some(before_refs) &&
-      after.get(page) is Some(after_refs) else {
-      return Err("missing collected page " + Json::string(page).stringify())
-    }
+    let before_refs = before.get(page).unwrap_or([])
+    let after_refs = after.get(page).unwrap_or([])
     let before_cross : Map[String, Bool] = Map([])
     let after_cross : Map[String, Bool] = Map([])
     for reference in before_refs {
@@ -288,5 +293,12 @@ fn collect_release_inputs(
     }
     result.push({ path: page, before: before_cross, after: after_cross, })
   }
-  Ok((result, assets))
+  let retained : Array[String] = []
+  for path in before_paths {
+    if !after_paths.contains(path) {
+      retained.push(path)
+    }
+  }
+  retained.sort_by((left, right) => left.lexical_compare(right))
+  Ok((result, assets, retained))
 }

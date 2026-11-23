@@ -364,6 +364,64 @@ jobs:
             assert(fs.existsSync(path.join(state, "assets", "app.js")));
             cli(2, "review-release", "--before-root", before, "--after-root",
               versioned, "--json", "missing.html");
+
+            const oldRoot = path.join(temp, "old-inventory");
+            const newRoot = path.join(temp, "new-inventory");
+            const oldPage = "retiring guide.html";
+            const newPage = "new guide.html";
+            const beforeList = path.join(temp, "before pages.txt");
+            const afterList = path.join(temp, "after pages.txt");
+            fs.cpSync(path.join(before, "assets"), path.join(oldRoot, "assets"), { recursive: true });
+            fs.cpSync(path.join(overwrite, "assets"), path.join(newRoot, "assets"), { recursive: true });
+            fs.renameSync(path.join(oldRoot, "assets/site.css"), path.join(oldRoot, "assets/legacy.css"));
+            fs.renameSync(path.join(newRoot, "assets/site.css"), path.join(newRoot, "assets/next.css"));
+            fs.writeFileSync(path.join(oldRoot, oldPage),
+              fs.readFileSync(path.join(before, "hours/index.html"), "utf8").replace("/assets/site.css", "/assets/legacy.css"));
+            fs.writeFileSync(path.join(newRoot, newPage),
+              fs.readFileSync(path.join(overwrite, "hours/index.html"), "utf8").replace("/assets/site.css", "/assets/next.css"));
+            fs.writeFileSync(beforeList, "\uFEFF" + oldPage + "\r\n\r\n");
+            fs.writeFileSync(afterList, newPage + "\n");
+            const args = ["review-release", "--before-root", oldRoot, "--after-root", newRoot,
+              "--before-pages", beforeList, "--after-pages", afterList, "--json"];
+            const inventory = JSON.parse(cli(0, ...args));
+            assert.deepEqual(inventory.waves, [
+              [{ kind: "publish_asset", path: "assets/next.css" }, { kind: "retire_page", path: oldPage }],
+              [{ kind: "replace_asset", path: "assets/app.js" }],
+              [{ kind: "publish_page", path: newPage }]
+            ]);
+            assert.deepEqual(inventory.retained_assets, ["assets/legacy.css"]);
+            assert.deepEqual(inventory.cycle, []);
+            const liveInventory = path.join(temp, "live-inventory");
+            fs.cpSync(oldRoot, liveInventory, { recursive: true });
+            const activePages = new Set([oldPage]);
+            for (const wave of inventory.waves) {
+              for (const action of [...wave].reverse()) {
+                if (action.kind === "retire_page") {
+                  fs.unlinkSync(path.join(liveInventory, action.path));
+                  activePages.delete(action.path);
+                } else {
+                  copyAction(liveInventory, newRoot, action);
+                  if (action.kind === "publish_page") activePages.add(action.path);
+                }
+                if (activePages.size > 0) cli(0, "audit-html", "--root", liveInventory, ...activePages);
+              }
+            }
+            assert.deepEqual([...activePages], [newPage]);
+            assert(fs.existsSync(path.join(liveInventory, "assets", "legacy.css")));
+            cli(2, ...args, oldPage);
+            fs.writeFileSync(beforeList, oldPage + "\n" + oldPage + "\n");
+            cli(2, ...args);
+            fs.writeFileSync(beforeList, "");
+            const firstLaunch = JSON.parse(cli(0, ...args));
+            assert.deepEqual(firstLaunch.waves.map(wave => wave.map(action => action.kind)), [
+              ["publish_asset", "publish_asset"], ["publish_page"]
+            ]);
+            fs.writeFileSync(afterList, "");
+            cli(2, ...args);
+            fs.writeFileSync(beforeList, oldPage + "\n");
+            const shutdown = JSON.parse(cli(0, ...args));
+            assert.deepEqual(shutdown.waves, [[{ kind: "retire_page", path: oldPage }]]);
+            assert.deepEqual(shutdown.retained_assets, ["assets/app.js", "assets/legacy.css"]);
           } finally {
             fs.rmSync(temp, { recursive: true, force: true });
           }
