@@ -1,0 +1,47 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "yiwnagmolu/moonsri/rollout"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn plan(Array[Page], Map[String, AssetChange]) -> Plan
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum Action {
+  PublishAsset(String)
+  ReplaceAsset(String)
+  SwitchPage(String)
+}
+pub fn Action::equal(Self, Self) -> Bool
+pub fn Action::not_equal(Self, Self) -> Bool
+pub fn Action::to_repr(Self) -> @debug.Repr
+
+pub(all) enum AssetChange {
+  Publish
+  Replace
+}
+
+pub(all) struct Page {
+  path : String
+  before : Map[String, Bool]
+  after : Map[String, Bool]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Plan {
+  waves : Array[Array[Action]]
+  cycle : Array[Action]
+  constraints : Array[(Action, Action)]
+}
+pub fn Plan::equal(Self, Self) -> Bool
+pub fn Plan::not_equal(Self, Self) -> Bool
+pub fn Plan::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits
