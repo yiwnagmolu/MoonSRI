@@ -1,7 +1,7 @@
 ///|
 test "release collection preserves repeated references in a page" {
   let pages = ["browser.html"]
-  let result = load_release_pages("examples/", pages[:])
+  let result = load_release_pages("examples/", pages[:], Set([]))
   guard result is Ok(found) && found.get("browser.html") is Some(refs) else {
     fail("expected to collect browser example")
   }
@@ -113,9 +113,36 @@ test "release comparison reuses qualified SHA-512 tokens from both snapshots" {
   let before : ReleaseFiles = {
     prefix: "",
     tokens: Map([(key, "sha512-old")]),
+    matches_by_declaration: Map([]),
   }
-  let after : ReleaseFiles = { prefix: "", tokens: Map([(key, "sha512-old")]), }
+  let after : ReleaseFiles = {
+    prefix: "",
+    tokens: Map([(key, "sha512-old")]),
+    matches_by_declaration: Map([]),
+  }
   assert_true(before.same_asset(after, path))
   after.tokens[key] = "sha512-new"
   assert_false(before.same_asset(after, path))
+}
+
+///|
+test "release matching caches each declaration's verdict per snapshot and asset" {
+  let files : ReleaseFiles = {
+    prefix: "__missing_snapshot__/",
+    tokens: Map([(("app.js", @sri.Sha384), "sha384-old")]),
+    matches_by_declaration: Map([]),
+  }
+  let original : ReleaseRef = { path: "app.js", integrity: "sha384-old", }
+  let different : ReleaseRef = { path: "app.js", integrity: "sha384-new", }
+  assert_true(files.matches(original))
+  assert_false(files.matches(different))
+  files.tokens.clear()
+  assert_true(files.matches(original))
+  assert_false(files.matches(different))
+  let missing : ReleaseRef = { path: "other.js", integrity: "sha384-old", }
+  let unavailable = files.matches(missing) catch { _ => true }
+  assert_true(unavailable)
+  assert_true(
+    files.matches_by_declaration.get((missing.path, missing.integrity)) is None,
+  )
 }

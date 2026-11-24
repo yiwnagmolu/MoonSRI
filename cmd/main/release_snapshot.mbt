@@ -10,6 +10,7 @@ priv struct ReleaseRef {
 fn load_release_pages(
   prefix : String,
   pages : ArrayView[String],
+  supported : Set[String],
 ) -> Result[Map[String, Array[ReleaseRef]], String] {
   let result : Map[String, Array[ReleaseRef]] = Map([])
   for page in pages {
@@ -40,13 +41,16 @@ fn load_release_pages(
           Json::string(path).stringify(),
         )
       }
-      if @sri.canonical_metadata(integrity) is None {
-        return Err(
-          "page " +
-          Json::string(page).stringify() +
-          ": no supported integrity for " +
-          Json::string(path).stringify(),
-        )
+      if !supported.contains(integrity) {
+        if @sri.canonical_metadata(integrity) is None {
+          return Err(
+            "page " +
+            Json::string(page).stringify() +
+            ": no supported integrity for " +
+            Json::string(path).stringify(),
+          )
+        }
+        supported.add(integrity)
       }
       refs.push({ path, integrity, })
     }
@@ -59,6 +63,7 @@ fn load_release_pages(
 priv struct ReleaseFiles {
   prefix : String
   tokens : Map[(String, @sri.Algorithm), String]
+  matches_by_declaration : Map[(String, String), Bool]
 }
 
 ///|
@@ -81,10 +86,16 @@ fn ReleaseFiles::matches(
   self : ReleaseFiles,
   reference : ReleaseRef,
 ) -> Bool raise {
+  let key = (reference.path, reference.integrity)
+  if self.matches_by_declaration.get(key) is Some(matches) {
+    return matches
+  }
   let verdict = @sri.verify_with_token(reference.integrity, algorithm => {
     self.token(reference.path, algorithm)
   })
-  verdict is Ok(Match)
+  let matches = verdict is Ok(Match)
+  self.matches_by_declaration[key] = matches
+  matches
 }
 
 ///|
@@ -132,16 +143,25 @@ fn collect_release_inputs(
   (Array[@rollout.Page], Map[String, @rollout.AssetChange], Array[String]),
   String,
 ] {
-  let before = match load_release_pages(before_root, before_pages) {
+  let supported : Set[String] = Set([])
+  let before = match load_release_pages(before_root, before_pages, supported) {
     Ok(value) => value
     Err(reason) => return Err("before " + reason)
   }
-  let after = match load_release_pages(after_root, after_pages) {
+  let after = match load_release_pages(after_root, after_pages, supported) {
     Ok(value) => value
     Err(reason) => return Err("after " + reason)
   }
-  let before_files : ReleaseFiles = { prefix: before_root, tokens: Map([]), }
-  let after_files : ReleaseFiles = { prefix: after_root, tokens: Map([]), }
+  let before_files : ReleaseFiles = {
+    prefix: before_root,
+    tokens: Map([]),
+    matches_by_declaration: Map([]),
+  }
+  let after_files : ReleaseFiles = {
+    prefix: after_root,
+    tokens: Map([]),
+    matches_by_declaration: Map([]),
+  }
   let before_paths : Set[String] = Set([])
   let after_paths : Set[String] = Set([])
   let page_paths : Set[String] = Set([])
