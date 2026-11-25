@@ -1,0 +1,202 @@
+{
+  "started_utc": "2026-11-25T10:50:09+00:00",
+  "system": "Windows-11-10.0.26100-SP0",
+  "cpu": "AMD Ryzen 7 5800H with Radeon Graphics",
+  "logical_cpus": 16,
+  "python": "3.12.14",
+  "node": "v24.21.0",
+  "moonbit": [
+    "moon 0.1.20261104 (940aa18 2026-11-04)",
+    "moonc v0.10.20+65efd5b93 (2026-11-05)",
+    "moonrun 0.1.20261104 (940aa18 2026-11-04)"
+  ],
+  "warmups_per_mode": 1,
+  "samples_per_mode": 5,
+  "cases": {
+    "storefront": {
+      "input": {
+        "pages": 2,
+        "live_files": 6,
+        "live_bytes": 1497,
+        "waves": [
+          2,
+          2
+        ],
+        "constraints": 3,
+        "steps": 4,
+        "checked_paths": 6
+      },
+      "backends": {
+        "wasm-gc": {
+          "samples_ms": {
+            "plan": [
+              64.382,
+              67.824,
+              62.715,
+              60.908,
+              63.262
+            ],
+            "order": [
+              60.48,
+              61.976,
+              60.977,
+              63.817,
+              72.236
+            ],
+            "live_match": [
+              68.796,
+              66.446,
+              66.188,
+              70.186,
+              69.62
+            ]
+          },
+          "median_ms": {
+            "plan": 63.262,
+            "order": 61.976,
+            "live_match": 68.796
+          }
+        },
+        "js": {
+          "samples_ms": {
+            "plan": [
+              200.287,
+              180.234,
+              176.286,
+              162.354,
+              166.115
+            ],
+            "order": [
+              202.0,
+              182.017,
+              180.139,
+              171.18,
+              176.529
+            ],
+            "live_match": [
+              200.522,
+              201.007,
+              188.238,
+              176.325,
+              175.042
+            ]
+          },
+          "median_ms": {
+            "plan": 176.286,
+            "order": 180.139,
+            "live_match": 188.238
+          }
+        }
+      },
+      "stdout_sha256": {
+        "plan": "05e0e81c2edc70e742fb1c8a5f45e8104ae902882d58042371cab82566e06c43",
+        "order": "04239b9af05b8aed5150af653ead65e2d8821100b14602cc947ac8ae457f27f8",
+        "live_match": "7b324e136489fb2b9446c7c65394a1bc4275a1eefd76ee2fbc28d1b386e7c194"
+      }
+    },
+    "shared-512kib": {
+      "input": {
+        "pages": 64,
+        "live_files": 65,
+        "live_bytes": 558326,
+        "waves": [
+          64,
+          1
+        ],
+        "constraints": 64,
+        "steps": 65,
+        "checked_paths": 65
+      },
+      "backends": {
+        "wasm-gc": {
+          "samples_ms": {
+            "plan": [
+              964.355,
+              896.531,
+              900.994,
+              1048.415,
+              887.144
+            ],
+            "order": [
+              896.599,
+              896.926,
+              900.812,
+              946.617,
+              891.381
+            ],
+            "live_match": [
+              1719.975,
+              1711.603,
+              1720.175,
+              1736.96,
+              1708.56
+            ],
+            "live_drift": [
+              1739.139,
+              1738.061,
+              1760.94,
+              1720.968,
+              1716.597
+            ]
+          },
+          "median_ms": {
+            "plan": 900.994,
+            "order": 896.926,
+            "live_match": 1719.975,
+            "live_drift": 1738.061
+          }
+        },
+        "js": {
+          "samples_ms": {
+            "plan": [
+              221.31,
+              231.821,
+              228.991,
+              227.101,
+              233.067
+            ],
+            "order": [
+              225.881,
+              223.001,
+              224.411,
+              221.613,
+              225.664
+            ],
+            "live_match": [
+              259.086,
+              258.837,
+              254.908,
+              252.163,
+              257.215
+            ],
+            "live_drift": [
+              262.691,
+              254.523,
+              252.843,
+              264.581,
+              261.014
+            ]
+          },
+          "median_ms": {
+            "plan": 228.991,
+            "order": 224.411,
+            "live_match": 257.215,
+            "live_drift": 261.014
+          }
+        }
+      },
+      "stdout_sha256": {
+        "plan": "a60365afba943faed4f68103366b4dfc2d21c2cc55b4a650ac3a2232498fb6b6",
+        "order": "d10613a0a55a3eab15c5ffc6e1763592876957960491d79344f41e499de28271",
+        "live_match": "5fc8b70d877165284fac6c9c82b6a3d113d919701febc6ca892a18249cf171c9",
+        "live_drift": "affe7f08feff959ccf2d34ce0aba84ce4b861a59a68b670346579fff092fa02e"
+      }
+    }
+  },
+  "build": {
+    "revision": "d8c9fe214886eabfcf97ca4d3f07fedde895e7ed",
+    "version": "0.8.0",
+    "source_sha256": "40cbf6d0f8c5face3a99d664aa61abdc19d126e5b805e6ee9d5faaaea8e90be2"
+  },
+  "finished_utc": "2026-11-25T10:50:57+00:00"
+}

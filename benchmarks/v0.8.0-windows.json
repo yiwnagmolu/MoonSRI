@@ -1,0 +1,606 @@
+{
+  "started_utc": "2026-11-25T10:38:47+00:00",
+  "system": "Windows-11-10.0.26100-SP0",
+  "cpu": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+  "logical_cpus": 16,
+  "python": "3.12.14",
+  "node": "v24.21.0",
+  "moonbit": [
+    "moon 0.1.20261104 (940aa18 2026-11-04)",
+    "moonc v0.10.20+65efd5b93 (2026-11-05)",
+    "moonrun 0.1.20261104 (940aa18 2026-11-04)"
+  ],
+  "samples_per_version": 5,
+  "warmups_per_version": 1,
+  "revisions": {
+    "baseline": {
+      "revision": "64b5ba1fc88a8963f08bd21041e724074f4f9f1e",
+      "version": "0.7.2",
+      "source_sha256": "4837b94b7c28c242022a7acf344d33817d32228521e2f536ffe9edbccfa16465"
+    },
+    "candidate": {
+      "revision": "d8c9fe214886eabfcf97ca4d3f07fedde895e7ed",
+      "version": "0.8.0",
+      "source_sha256": "40cbf6d0f8c5face3a99d664aa61abdc19d126e5b805e6ee9d5faaaea8e90be2"
+    }
+  },
+  "cases": {
+    "docs-10pct-edited": {
+      "inputs": {
+        "before": {
+          "pages": 120,
+          "html_bytes": 294790,
+          "assets": 2,
+          "asset_bytes": 43
+        },
+        "after": {
+          "pages": 120,
+          "html_bytes": 294958,
+          "assets": 2,
+          "asset_bytes": 43
+        }
+      },
+      "waves": [
+        120
+      ],
+      "constraints": 0,
+      "cycle_length": 0,
+      "exit_code": 0,
+      "backends": {
+        "js": {
+          "stdout_sha256": "3c4a243050165718ba8aadc2efe968f9891c6789f726bf1e64e163351add28a8",
+          "stdout_bytes": 10913,
+          "samples_ms": {
+            "baseline": [
+              356.333,
+              371.106,
+              494.109,
+              422.925,
+              382.02
+            ],
+            "candidate": [
+              314.708,
+              311.588,
+              325.355,
+              319.363,
+              308.98
+            ]
+          },
+          "median_ms": {
+            "baseline": 382.02,
+            "candidate": 314.708
+          },
+          "delta_percent": -17.6
+        },
+        "wasm-gc": {
+          "stdout_sha256": "3c4a243050165718ba8aadc2efe968f9891c6789f726bf1e64e163351add28a8",
+          "stdout_bytes": 10913,
+          "samples_ms": {
+            "baseline": [
+              646.852,
+              653.213,
+              648.99,
+              656.892,
+              666.395
+            ],
+            "candidate": [
+              598.606,
+              612.274,
+              609.038,
+              606.657,
+              656.674
+            ]
+          },
+          "median_ms": {
+            "baseline": 653.213,
+            "candidate": 609.038
+          },
+          "delta_percent": -6.8
+        }
+      }
+    },
+    "docs-100pct-edited": {
+      "inputs": {
+        "before": {
+          "pages": 120,
+          "html_bytes": 294790,
+          "assets": 2,
+          "asset_bytes": 43
+        },
+        "after": {
+          "pages": 120,
+          "html_bytes": 296470,
+          "assets": 2,
+          "asset_bytes": 43
+        }
+      },
+      "waves": [
+        120
+      ],
+      "constraints": 0,
+      "cycle_length": 0,
+      "exit_code": 0,
+      "backends": {
+        "js": {
+          "stdout_sha256": "3c4a243050165718ba8aadc2efe968f9891c6789f726bf1e64e163351add28a8",
+          "stdout_bytes": 10913,
+          "samples_ms": {
+            "baseline": [
+              354.24,
+              360.898,
+              351.878,
+              357.153,
+              350.329
+            ],
+            "candidate": [
+              381.892,
+              353.652,
+              359.861,
+              354.928,
+              351.104
+            ]
+          },
+          "median_ms": {
+            "baseline": 354.24,
+            "candidate": 354.928
+          },
+          "delta_percent": 0.2
+        },
+        "wasm-gc": {
+          "stdout_sha256": "3c4a243050165718ba8aadc2efe968f9891c6789f726bf1e64e163351add28a8",
+          "stdout_bytes": 10913,
+          "samples_ms": {
+            "baseline": [
+              668.537,
+              654.317,
+              651.494,
+              647.345,
+              664.59
+            ],
+            "candidate": [
+              654.836,
+              655.165,
+              648.044,
+              654.227,
+              646.599
+            ]
+          },
+          "median_ms": {
+            "baseline": 654.317,
+            "candidate": 654.227
+          },
+          "delta_percent": -0.0
+        }
+      }
+    },
+    "shared-2mib": {
+      "inputs": {
+        "before": {
+          "pages": 12,
+          "html_bytes": 2282,
+          "assets": 1,
+          "asset_bytes": 2097152
+        },
+        "after": {
+          "pages": 12,
+          "html_bytes": 3434,
+          "assets": 1,
+          "asset_bytes": 2097152
+        }
+      },
+      "waves": [
+        12,
+        1
+      ],
+      "constraints": 12,
+      "cycle_length": 0,
+      "exit_code": 0,
+      "backends": {
+        "js": {
+          "stdout_sha256": "57b5051b08d35bfee782e638540714940b97d6f0764e2bc40b171669e17747f6",
+          "stdout_bytes": 3428,
+          "samples_ms": {
+            "baseline": [
+              180.644,
+              183.125,
+              184.897,
+              180.491,
+              177.864
+            ],
+            "candidate": [
+              199.285,
+              182.253,
+              183.427,
+              180.453,
+              182.072
+            ]
+          },
+          "median_ms": {
+            "baseline": 180.644,
+            "candidate": 182.253
+          },
+          "delta_percent": 0.9
+        },
+        "wasm-gc": {
+          "stdout_sha256": "57b5051b08d35bfee782e638540714940b97d6f0764e2bc40b171669e17747f6",
+          "stdout_bytes": 3428,
+          "samples_ms": {
+            "baseline": [
+              3120.77,
+              3134.92,
+              3092.639,
+              3129.958,
+              3081.964
+            ],
+            "candidate": [
+              3135.551,
+              3102.379,
+              3109.843,
+              3106.628,
+              3100.028
+            ]
+          },
+          "median_ms": {
+            "baseline": 3120.77,
+            "candidate": 3106.628
+          },
+          "delta_percent": -0.5
+        }
+      }
+    },
+    "repeat-64x64": {
+      "inputs": {
+        "before": {
+          "pages": 64,
+          "html_bytes": 612982,
+          "assets": 1,
+          "asset_bytes": 96
+        },
+        "after": {
+          "pages": 64,
+          "html_bytes": 1006198,
+          "assets": 1,
+          "asset_bytes": 96
+        }
+      },
+      "waves": [
+        64,
+        1
+      ],
+      "constraints": 64,
+      "cycle_length": 0,
+      "exit_code": 0,
+      "backends": {
+        "js": {
+          "stdout_sha256": "a60365afba943faed4f68103366b4dfc2d21c2cc55b4a650ac3a2232498fb6b6",
+          "stdout_bytes": 17364,
+          "samples_ms": {
+            "baseline": [
+              365.432,
+              374.284,
+              371.351,
+              374.182,
+              363.435
+            ],
+            "candidate": [
+              375.281,
+              363.629,
+              366.965,
+              364.74,
+              361.583
+            ]
+          },
+          "median_ms": {
+            "baseline": 371.351,
+            "candidate": 364.74
+          },
+          "delta_percent": -1.8
+        },
+        "wasm-gc": {
+          "stdout_sha256": "a60365afba943faed4f68103366b4dfc2d21c2cc55b4a650ac3a2232498fb6b6",
+          "stdout_bytes": 17364,
+          "samples_ms": {
+            "baseline": [
+              1365.03,
+              1379.404,
+              1370.211,
+              1381.43,
+              1382.894
+            ],
+            "candidate": [
+              1379.141,
+              1375.292,
+              1381.294,
+              1377.699,
+              1392.417
+            ]
+          },
+          "median_ms": {
+            "baseline": 1379.404,
+            "candidate": 1379.141
+          },
+          "delta_percent": -0.0
+        }
+      }
+    },
+    "wide-launch": {
+      "inputs": {
+        "before": {
+          "pages": 0,
+          "html_bytes": 0,
+          "assets": 0,
+          "asset_bytes": 0
+        },
+        "after": {
+          "pages": 256,
+          "html_bytes": 34048,
+          "assets": 256,
+          "asset_bytes": 7570
+        }
+      },
+      "waves": [
+        256,
+        256
+      ],
+      "constraints": 256,
+      "cycle_length": 0,
+      "exit_code": 0,
+      "backends": {
+        "js": {
+          "stdout_sha256": "4aafce8e347f08d0879a7a91ecde32df0ab12af4e01fc10de509314fd43233b5",
+          "stdout_bytes": 98687,
+          "samples_ms": {
+            "baseline": [
+              309.315,
+              321.689,
+              310.075,
+              308.673,
+              309.524
+            ],
+            "candidate": [
+              305.836,
+              313.617,
+              311.925,
+              312.539,
+              304.213
+            ]
+          },
+          "median_ms": {
+            "baseline": 309.524,
+            "candidate": 311.925
+          },
+          "delta_percent": 0.8
+        },
+        "wasm-gc": {
+          "stdout_sha256": "4aafce8e347f08d0879a7a91ecde32df0ab12af4e01fc10de509314fd43233b5",
+          "stdout_bytes": 98687,
+          "samples_ms": {
+            "baseline": [
+              220.072,
+              220.975,
+              221.084,
+              225.813,
+              219.018
+            ],
+            "candidate": [
+              221.951,
+              218.919,
+              228.514,
+              222.926,
+              219.259
+            ]
+          },
+          "median_ms": {
+            "baseline": 220.975,
+            "candidate": 221.951
+          },
+          "delta_percent": 0.4
+        }
+      }
+    },
+    "late-cycle": {
+      "inputs": {
+        "before": {
+          "pages": 384,
+          "html_bytes": 6540,
+          "assets": 1,
+          "asset_bytes": 3
+        },
+        "after": {
+          "pages": 384,
+          "html_bytes": 6540,
+          "assets": 1,
+          "asset_bytes": 3
+        }
+      },
+      "waves": [
+        383
+      ],
+      "constraints": 2,
+      "cycle_length": 3,
+      "exit_code": 1,
+      "backends": {
+        "js": {
+          "stdout_sha256": "7ac66daed3878987467531fe05ceee90502df1b607653cf1c7cbbe206ae60160",
+          "stdout_bytes": 30204,
+          "samples_ms": {
+            "baseline": [
+              327.576,
+              321.284,
+              341.514,
+              330.127,
+              322.302
+            ],
+            "candidate": [
+              308.372,
+              318.409,
+              313.96,
+              328.616,
+              313.264
+            ]
+          },
+          "median_ms": {
+            "baseline": 327.576,
+            "candidate": 313.96
+          },
+          "delta_percent": -4.2
+        },
+        "wasm-gc": {
+          "stdout_sha256": "7ac66daed3878987467531fe05ceee90502df1b607653cf1c7cbbe206ae60160",
+          "stdout_bytes": 30204,
+          "samples_ms": {
+            "baseline": [
+              215.465,
+              211.308,
+              209.937,
+              224.673,
+              211.685
+            ],
+            "candidate": [
+              197.264,
+              202.836,
+              202.367,
+              202.271,
+              201.239
+            ]
+          },
+          "median_ms": {
+            "baseline": 211.685,
+            "candidate": 202.271
+          },
+          "delta_percent": -4.4
+        }
+      }
+    },
+    "bootstrap-upgrade": {
+      "inputs": {
+        "before": {
+          "pages": 24,
+          "html_bytes": 8702,
+          "assets": 2,
+          "asset_bytes": 313611
+        },
+        "after": {
+          "pages": 24,
+          "html_bytes": 8702,
+          "assets": 2,
+          "asset_bytes": 313524
+        }
+      },
+      "waves": [
+        2,
+        24
+      ],
+      "constraints": 48,
+      "cycle_length": 0,
+      "exit_code": 0,
+      "backends": {
+        "js": {
+          "stdout_sha256": "a592fb8a77caab38ecc0f58d069c75823da479a9629049e3fdfd06669f652c3e",
+          "stdout_bytes": 13453,
+          "samples_ms": {
+            "baseline": [
+              200.526,
+              201.23,
+              202.424,
+              200.582,
+              194.004
+            ],
+            "candidate": [
+              203.453,
+              204.731,
+              199.588,
+              202.159,
+              202.348
+            ]
+          },
+          "median_ms": {
+            "baseline": 200.582,
+            "candidate": 202.348
+          },
+          "delta_percent": 0.9
+        },
+        "wasm-gc": {
+          "stdout_sha256": "a592fb8a77caab38ecc0f58d069c75823da479a9629049e3fdfd06669f652c3e",
+          "stdout_bytes": 13453,
+          "samples_ms": {
+            "baseline": [
+              550.213,
+              548.613,
+              545.147,
+              554.169,
+              545.287
+            ],
+            "candidate": [
+              553.933,
+              545.915,
+              555.914,
+              546.387,
+              554.831
+            ]
+          },
+          "median_ms": {
+            "baseline": 548.613,
+            "candidate": 553.933
+          },
+          "delta_percent": 1.0
+        }
+      }
+    }
+  },
+  "bootstrap_checkpoint": {
+    "wasm-gc": {
+      "samples_ms": {
+        "order": [
+          543.444,
+          543.166,
+          543.7,
+          543.365,
+          547.973
+        ],
+        "order_and_live": [
+          1483.73,
+          1465.029,
+          1455.05,
+          1464.944,
+          1477.705
+        ]
+      },
+      "median_ms": {
+        "order": 543.444,
+        "order_and_live": 1465.029
+      },
+      "stdout_sha256": {
+        "order": "b77b419606160cf2f708d127397fb1624d61abd41e74ba3961ef24fa35e5f9c7",
+        "order_and_live": "a5714911eb0805937d69d6c61855ad8d76926e7a99b3512ff0c7a9d0f3e900f6"
+      }
+    },
+    "js": {
+      "samples_ms": {
+        "order": [
+          200.907,
+          202.072,
+          192.618,
+          193.06,
+          194.553
+        ],
+        "order_and_live": [
+          223.665,
+          213.786,
+          211.617,
+          211.951,
+          211.324
+        ]
+      },
+      "median_ms": {
+        "order": 194.553,
+        "order_and_live": 211.951
+      },
+      "stdout_sha256": {
+        "order": "b77b419606160cf2f708d127397fb1624d61abd41e74ba3961ef24fa35e5f9c7",
+        "order_and_live": "a5714911eb0805937d69d6c61855ad8d76926e7a99b3512ff0c7a9d0f3e900f6"
+      }
+    }
+  },
+  "finished_utc": "2026-11-25T10:41:05+00:00"
+}
