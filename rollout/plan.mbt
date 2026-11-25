@@ -15,7 +15,7 @@ pub(all) enum AssetChange {
 }
 
 ///|
-#derive(Eq, Debug)
+#derive(Eq, Hash, Debug)
 pub(all) enum Action {
   PublishAsset(String)
   ReplaceAsset(String)
@@ -32,6 +32,9 @@ pub(all) struct Plan {
 
 ///|
 pub extend Action with Eq::{equal, not_equal}
+
+///|
+pub extend Action with Hash::{hash, hash_combine}
 
 ///|
 pub extend Action with @debug.Debug::{to_repr}

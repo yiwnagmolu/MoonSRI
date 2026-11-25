@@ -196,6 +196,12 @@ test "two-page two-asset plans match all 256 compatibility graphs and 24 deploym
     }
   }
   assert_eq(orders.length(), 24)
+  let actions = [
+    @rollout.ReplaceAsset("a.js"),
+    @rollout.ReplaceAsset("b.js"),
+    @rollout.SwitchPage("first.html"),
+    @rollout.SwitchPage("second.html"),
+  ]
   for mask in 0..<256 {
     let pages : Array[@rollout.Page] = []
     for page in 0..<2 {
@@ -247,7 +253,40 @@ test "two-page two-asset plans match all 256 compatibility graphs and 24 deploym
       }
       assert_eq(order.length(), 4)
       assert_true(accepts_every_state(pages, order))
+      // Independently evaluate actual intermediate page/asset combinations
+      // after every possible next step of every reachable prefix.
+      for order in orders {
+        let replay = @rollout.begin_replay(result).unwrap()
+        let prefix = []
+        for next in order {
+          let ready = replay.ready()
+          for id, action in actions {
+            let previously_applied = prefix.contains(id)
+            prefix.push(id)
+            let safe = !previously_applied && accepts_every_state(pages, prefix)
+            ignore(prefix.pop())
+            assert_eq(
+              ready.contains(action),
+              safe,
+              msg="mask \{mask}, next \{id}",
+            )
+          }
+          prefix.push(next)
+          let accepted = replay.apply(actions[next]) is Ok(_)
+          assert_eq(accepted, accepts_every_state(pages, prefix))
+          if !accepted {
+            assert_eq(replay.ready(), ready)
+            break
+          }
+          assert_eq(replay.completed(), prefix.length())
+        }
+        assert_eq(replay.is_complete(), accepts_every_state(pages, order))
+      }
     } else {
+      assert_eq(
+        @rollout.begin_replay(result).unwrap_err(),
+        @rollout.CyclicPlan(result.cycle),
+      )
       for index in 0..<(result.cycle.length() - 1) {
         assert_true(
           result.constraints.contains(

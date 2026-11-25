@@ -6,18 +6,22 @@ import {
 }
 
 // Values
+pub fn begin_replay(Plan) -> Result[Replay, ReplayError]
+
 pub fn plan(Array[Page], Map[String, AssetChange]) -> Plan
 
 // Errors
 
 // Types and methods
-#derive(Eq, @debug.Debug)
+#derive(Eq, Hash, @debug.Debug)
 pub(all) enum Action {
   PublishAsset(String)
   ReplaceAsset(String)
   SwitchPage(String)
 }
 pub fn Action::equal(Self, Self) -> Bool
+pub fn Action::hash(Self) -> Int32
+pub fn Action::hash_combine(Self, Hasher) -> Unit
 pub fn Action::not_equal(Self, Self) -> Bool
 pub fn Action::to_repr(Self) -> @debug.Repr
 
@@ -41,6 +45,27 @@ pub(all) struct Plan {
 pub fn Plan::equal(Self, Self) -> Bool
 pub fn Plan::not_equal(Self, Self) -> Bool
 pub fn Plan::to_repr(Self) -> @debug.Repr
+
+pub struct Replay {
+  // private fields
+}
+pub fn Replay::apply(Self, Action) -> Result[Unit, ReplayError]
+pub fn Replay::completed(Self) -> Int32
+pub fn Replay::is_complete(Self) -> Bool
+pub fn Replay::ready(Self) -> Array[Action]
+pub fn Replay::total(Self) -> Int32
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ReplayError {
+  CyclicPlan(Array[Action])
+  InvalidPlan
+  UnknownAction(Action)
+  RepeatedAction(Action)
+  UnmetPrerequisites(Action, Array[Action])
+}
+pub fn ReplayError::equal(Self, Self) -> Bool
+pub fn ReplayError::not_equal(Self, Self) -> Bool
+pub fn ReplayError::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 
