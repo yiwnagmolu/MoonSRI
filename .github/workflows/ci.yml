@@ -184,7 +184,7 @@ jobs:
           test -z "$report"
           [[ "$(<"$temp_dir/glob.err")" == *'No asset matches glob:'* ]]
           status=0
-          report="$(run_cli manifest --root "$glob_dir" 'assets//x.js' 2>"$temp_dir/glob.err")" || status=$?
+          report="$(run_cli manifest --root "$glob_dir" 'assets/**/' 2>"$temp_dir/glob.err")" || status=$?
           test "$status" -eq 2
           test -z "$report"
           [[ "$(<"$temp_dir/glob.err")" == *'Invalid asset glob:'* ]]
