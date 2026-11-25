@@ -1,8 +1,12 @@
 ///|
 test "release collection preserves repeated references in a page" {
-  let pages = ["browser.html"]
-  let result = load_release_pages("examples/", pages[:], Set([]))
-  guard result is Ok(found) && found.get("browser.html") is Some(refs) else {
+  let result = read_release_page_pair(
+    "browser.html",
+    Some("examples/"),
+    None,
+    Set([]),
+  )
+  guard result is Ok((refs, [])) else {
     fail("expected to collect browser example")
   }
   assert_eq(refs.length(), 3)
@@ -10,6 +14,110 @@ test "release collection preserves repeated references in a page" {
   assert_eq(refs[1].path, "hello.js")
   assert_eq(refs[2].path, "hello.js")
   assert_true(refs[1].integrity != refs[2].integrity)
+}
+
+///|
+test "release references resolve relative bases in their own page directory" {
+  let source =
+    #|<base href="public/">
+    #|<script src="app%20main.js?rev=1#x" integrity="sha384-old"></script>
+    #|<script src="app%20main.js?rev=2" integrity="sha384-new"></script>
+    #|<script src="/shared.js" integrity="sha384-root"></script>
+    #|<script src="https://cdn.example/app.js"></script>
+  let supported = Set([])
+  for directory in ["first", "中文"] {
+    guard parse_release_references(directory + "/index.html", source, supported)
+      is Ok(refs) else {
+      fail("expected local references")
+    }
+    assert_eq(refs.length(), 3)
+    assert_eq(refs[0].path, directory + "/public/app main.js")
+    assert_eq(refs[1].path, refs[0].path)
+    assert_eq(refs[0].integrity, "sha384-old")
+    assert_eq(refs[1].integrity, "sha384-new")
+    assert_eq(refs[2].path, "shared.js")
+  }
+}
+
+///|
+test "release references retain per-declaration failures and invalid local URLs" {
+  let supported = Set([])
+  let valid = "<script src='app.js' integrity='sha384-ok'></script>"
+  for
+    entry in [
+      (
+        "<script src='app.js?next'></script>", "missing integrity for \"app.js\"",
+      ),
+      (
+        "<script src='app.js' integrity='&#9; &#12;'></script>", "missing integrity for \"app.js\"",
+      ),
+      (
+        "<script src='app.js' integrity='sha1-no'></script>", "no supported integrity for \"app.js\"",
+      ),
+      (
+        "<script src='#hash' integrity='sha384-ok'></script>", "invalid URL \"#hash\"",
+      ),
+      (
+        "<script src='../app.js' integrity='sha384-ok'></script>", "invalid URL \"../app.js\"",
+      ),
+      (
+        "<script src='asset%2Fapp.js' integrity='sha384-ok'></script>", "invalid URL \"asset%2Fapp.js\"",
+      ),
+    ] {
+    let (extra, expected) = entry
+    guard parse_release_references("index.html", valid + extra, supported)
+      is Err(reason) else {
+      fail("expected a declaration or URL error")
+    }
+    assert_eq(reason, expected)
+  }
+}
+
+///|
+test "equal page sources share declarations but each root verifies its own bytes" {
+  guard read_release_page_pair(
+      "index.html",
+      Some("examples/rollout/before/"),
+      Some("examples/rollout/before/"),
+      Set([]),
+    )
+    is Ok((before, after)) else {
+    fail("expected both page versions")
+  }
+  guard before.get(1) is Some(previous) && after.get(1) is Some(current) else {
+    fail("expected the same script in both snapshots")
+  }
+  assert_eq(previous.path, current.path)
+  assert_eq(previous.integrity, current.integrity)
+  let old_files : ReleaseFiles = {
+    prefix: "examples/rollout/before/",
+    tokens: Map([]),
+    matches_by_declaration: Map([]),
+  }
+  let new_files : ReleaseFiles = {
+    prefix: "examples/rollout/overwrite/",
+    tokens: Map([]),
+    matches_by_declaration: Map([]),
+  }
+  assert_true(old_files.matches(previous))
+  assert_false(new_files.matches(current))
+}
+
+///|
+test "paired read errors identify the missing endpoint even for shared pages" {
+  let pages = ["index.html"]
+  for
+    entry in [
+      ("__missing_snapshot__/", "examples/rollout/before/", "before"),
+      ("examples/rollout/before/", "__missing_snapshot__/", "after"),
+    ] {
+    let (before_root, after_root, side) = entry
+    guard collect_release_inputs(before_root, after_root, pages[:], pages[:])
+      is Err(reason) else {
+      fail("expected the missing page to prevent planning")
+    }
+    assert_eq(reason, side + " page \"index.html\": read_error")
+  }
 }
 
 ///|

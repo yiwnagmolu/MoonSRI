@@ -7,56 +7,87 @@ priv struct ReleaseRef {
 ///|
 /// Collect local references in DOM order. External URLs do not participate
 /// in the local release plan.
-fn load_release_pages(
-  prefix : String,
-  pages : ArrayView[String],
+fn parse_release_references(
+  page : String,
+  source : String,
   supported : Set[String],
-) -> Result[Map[String, Array[ReleaseRef]], String] {
-  let result : Map[String, Array[ReleaseRef]] = Map([])
-  for page in pages {
-    let (directory, document) = match read_audit_page(prefix, page) {
-      Ok(value) => value
-      Err(reason) =>
-        return Err("page " + Json::string(page).stringify() + ": " + reason)
+) -> Result[Array[ReleaseRef], String] {
+  let (directory, document) = match parse_audit_page(page, source) {
+    Ok(value) => value
+    Err(reason) => return Err(reason)
+  }
+  let refs : Array[ReleaseRef] = []
+  for reference in document.references {
+    let path = match resolve_audit_path(directory, reference.url) {
+      Local(path) => path
+      External => continue
+      _ => return Err("invalid URL " + Json::string(reference.url).stringify())
     }
-    let refs : Array[ReleaseRef] = []
-    for reference in document.references {
-      let path = match resolve_audit_path(directory, reference.url) {
-        Local(path) => path
-        External => continue
-        _ =>
-          return Err(
-            "page " +
-            Json::string(page).stringify() +
-            ": invalid URL " +
-            Json::string(reference.url).stringify(),
-          )
-      }
-      let integrity = reference.integrity.unwrap_or("")
-      if integrity.trim(chars=" \t\n\r\u{000c}").is_empty() {
+    let integrity = reference.integrity.unwrap_or("")
+    if integrity.trim(chars=" \t\n\r\u{000c}").is_empty() {
+      return Err("missing integrity for " + Json::string(path).stringify())
+    }
+    if !supported.contains(integrity) {
+      if @sri.canonical_metadata(integrity) is None {
         return Err(
-          "page " +
-          Json::string(page).stringify() +
-          ": missing integrity for " +
-          Json::string(path).stringify(),
+          "no supported integrity for " + Json::string(path).stringify(),
         )
       }
-      if !supported.contains(integrity) {
-        if @sri.canonical_metadata(integrity) is None {
-          return Err(
-            "page " +
-            Json::string(page).stringify() +
-            ": no supported integrity for " +
-            Json::string(path).stringify(),
-          )
-        }
-        supported.add(integrity)
-      }
-      refs.push({ path, integrity, })
+      supported.add(integrity)
     }
-    result[page] = refs
+    refs.push({ path, integrity, })
   }
-  Ok(result)
+  Ok(refs)
+}
+
+///|
+/// Only the same page path with exactly equal decoded HTML may share resolved
+/// references. The caller still checks the asset bytes in each snapshot.
+fn read_release_page_pair(
+  page : String,
+  before_root : String?,
+  after_root : String?,
+  supported : Set[String],
+) -> Result[(Array[ReleaseRef], Array[ReleaseRef]), String] {
+  fn page_error(side : String, reason : String) -> String {
+    side + " page " + Json::string(page).stringify() + ": " + reason
+  }
+  let before = match before_root {
+    Some(root) => {
+      let source = match read_audit_source(root, page) {
+        Ok(source) => source
+        Err(reason) => return Err(page_error("before", reason))
+      }
+      let refs = match parse_release_references(page, source, supported) {
+        Ok(refs) => refs
+        Err(reason) => return Err(page_error("before", reason))
+      }
+      Some((source, refs))
+    }
+    None => None
+  }
+  let after_refs = match after_root {
+    Some(root) => {
+      let source = match read_audit_source(root, page) {
+        Ok(source) => source
+        Err(reason) => return Err(page_error("after", reason))
+      }
+      if before is Some((previous, refs)) && previous == source {
+        refs
+      } else {
+        match parse_release_references(page, source, supported) {
+          Ok(refs) => refs
+          Err(reason) => return Err(page_error("after", reason))
+        }
+      }
+    }
+    None => []
+  }
+  let before_refs = match before {
+    Some((_, refs)) => refs
+    None => []
+  }
+  Ok((before_refs, after_refs))
 }
 
 ///|
@@ -144,14 +175,6 @@ fn collect_release_inputs(
   String,
 ] {
   let supported : Set[String] = Set([])
-  let before = match load_release_pages(before_root, before_pages, supported) {
-    Ok(value) => value
-    Err(reason) => return Err("before " + reason)
-  }
-  let after = match load_release_pages(after_root, after_pages, supported) {
-    Ok(value) => value
-    Err(reason) => return Err("after " + reason)
-  }
   let before_files : ReleaseFiles = {
     prefix: before_root,
     tokens: Map([]),
@@ -164,24 +187,34 @@ fn collect_release_inputs(
   }
   let before_paths : Set[String] = Set([])
   let after_paths : Set[String] = Set([])
-  let page_paths : Set[String] = Set([])
-  let all_paths : Set[String] = Set([])
-  let ordered_paths : Array[String] = []
-  for page in before_pages {
-    page_paths.add(page)
-  }
-  for page in after_pages {
-    page_paths.add(page)
-  }
+  let old_pages = Set(before_pages)
+  let new_pages = Set(after_pages)
+  let page_paths = old_pages.union(new_pages)
   let pages = page_paths.iter().to_array()
   pages.sort_by((left, right) => left.lexical_compare(right))
+  let all_paths = Set(pages[:])
+  let ordered_paths = pages.copy()
+  let snapshots = []
   for page in pages {
-    all_paths.add(page)
-    ordered_paths.push(page)
-  }
-  for page in pages {
-    let before_refs = before.get(page).unwrap_or([])
-    let after_refs = after.get(page).unwrap_or([])
+    let (before_refs, after_refs) = match
+      read_release_page_pair(
+        page,
+        if old_pages.contains(page) {
+          Some(before_root)
+        } else {
+          None
+        },
+        if new_pages.contains(page) {
+          Some(after_root)
+        } else {
+          None
+        },
+        supported,
+      ) {
+      Ok(refs) => refs
+      Err(reason) => return Err(reason)
+    }
+    snapshots.push((page, before_refs, after_refs))
     for reference in before_refs {
       if page_paths.contains(reference.path) {
         return Err(
@@ -275,9 +308,8 @@ fn collect_release_inputs(
     }
   }
   let result : Array[@rollout.Page] = []
-  for page in pages {
-    let before_refs = before.get(page).unwrap_or([])
-    let after_refs = after.get(page).unwrap_or([])
+  for snapshot in snapshots {
+    let (page, before_refs, after_refs) = snapshot
     let before_cross : Map[String, Bool] = Map([])
     let after_cross : Map[String, Bool] = Map([])
     for reference in before_refs {
