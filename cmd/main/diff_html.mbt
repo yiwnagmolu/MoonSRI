@@ -3,12 +3,13 @@ priv struct ReleaseArgs {
   before : String
   after : String
   json_output : Bool
-  pages : ArrayView[String]
+  pages : Array[String]
   inventories : (String, String)?
   order_file : String?
   require_complete : Bool
   rollback : Bool
   live_root : String?
+  graph : String?
 }
 
 ///|
@@ -24,6 +25,8 @@ fn parse_release_args(
   let mut require_complete = false
   let mut rollback = false
   let mut live_root = None
+  let mut pages_from = None
+  let mut graph = None
   let mut json_output = false
   let mut index = 0
   while index < args.length() {
@@ -45,6 +48,19 @@ fn parse_release_args(
       "--json" if !json_output => {
         json_output = true
         index += 1
+      }
+      "--pages-from" if pages_from is None && index + 1 < args.length() => {
+        pages_from = Some(args[index + 1])
+        index += 2
+      }
+      "--graph" if review && graph is None && index + 1 < args.length() => {
+        let format = args[index + 1]
+        if format != "mermaid" && format != "dot" {
+          eprintln("Unknown graph format: " + Json::string(format).stringify())
+          return None
+        }
+        graph = Some(format)
+        index += 2
       }
       "--before-pages" if review &&
         before_list is None &&
@@ -96,7 +112,16 @@ fn parse_release_args(
     usage()
     return None
   }
-  let pages = args[index:]
+  let pages : Array[String] = []
+  for page in args[index:] {
+    pages.push(page)
+  }
+  if pages_from is Some(path) {
+    guard read_page_list(path, "page list") is Some(listed) else { return None }
+    for page in listed {
+      pages.push(page)
+    }
+  }
   let inventories = match (before_list, after_list) {
     (Some(before), Some(after)) if pages.is_empty() => Some((before, after))
     (None, None) if !pages.is_empty() => None
@@ -109,6 +134,14 @@ fn parse_release_args(
     eprintln("--require-complete and --verify-live require --check-order")
     return None
   }
+  if graph is Some(_) && json_output {
+    eprintln("--graph cannot be combined with --json")
+    return None
+  }
+  if graph is Some(_) && order_file is Some(_) {
+    eprintln("--graph cannot be combined with --check-order")
+    return None
+  }
   Some({
     before,
     after,
@@ -119,12 +152,14 @@ fn parse_release_args(
     require_complete,
     rollback,
     live_root,
+    graph,
   })
 }
 
 ///|
 fn run_diff_html(args : ArrayView[String]) -> Int32 {
   guard parse_release_args(args) is Some(options) else { return 2 }
+  guard reject_duplicate_pages(options.pages[:]) else { return 2 }
   let reports : Array[Json] = []
   let mut code = 0
   for page in options.pages {

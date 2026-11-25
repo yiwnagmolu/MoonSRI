@@ -1,7 +1,7 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.8.0](https://img.shields.io/badge/version-0.8.0-blue)](CHANGELOG.md)
+[![版本 0.9.0](https://img.shields.io/badge/version-0.9.0-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 MoonSRI 用 MoonBit 为静态站点规划满足子资源完整性（SRI）的发布和回退顺序。给它两份构建目录和受影响的页面，它会校验两版资源，计算哪些文件可以先上传、哪些页面必须等待。发布途中，可以用动作日志和部署目录核实进度。[双页示例](examples/rollout/README.md)
@@ -52,21 +52,26 @@ Node.js 命令行会分块读取资源文件，同一次读取可计算多个算
 
 ## 生成 HTML 标签
 
-`tag` 从本地文件计算摘要，并生成可复制到页面的 `script` 或 `link` 标签。第三个参数是浏览器加载资源时使用的 URL，可以是相对路径或 HTTP(S) 地址。标签默认包含 `crossorigin="anonymous"`。跨源资源的服务器需要允许页面通过 CORS 读取响应。参见 [W3C SRI 规范](https://www.w3.org/TR/sri/#verification-of-html-document-subresources)。
+`tag` 从本地文件计算摘要，并生成可复制到页面的标签。脚本和样式表使用 `script`、`stylesheet`，模块预加载使用 `modulepreload`，预加载使用 `preload` 并指定浏览器的 fetch 目的地。第三个参数是浏览器加载资源时使用的 URL，可以是相对路径或 HTTP(S) 地址。标签默认包含 `crossorigin="anonymous"`。跨源资源的服务器需要允许页面通过 CORS 读取响应。参见 [W3C SRI 规范](https://www.w3.org/TR/sri/#verification-of-html-document-subresources)。
 
 ```sh
 moon run cmd/main --target wasm -- tag script examples/hello.js '/assets/hello.js?v=1&lang=zh' sha384
 moon run cmd/main --target wasm -- tag stylesheet examples/style.css /assets/style.css
+moon run cmd/main --target wasm -- tag modulepreload examples/app.mjs /assets/app.mjs
+moon run cmd/main --target wasm -- tag preload examples/font.woff2 /assets/font.woff2 font
 ```
+
+`preload` 的目的地参数接受 HTML 规范定义的 fetch 目的地：`audio`、`document`、`embed`、`fetch`、`font`、`image`、`object`、`script`、`style`、`track`、`video`、`worker`。
 
 运行 `python -m http.server 8765 --bind 127.0.0.1` 后打开 [浏览器示例](http://127.0.0.1:8765/examples/browser.html)。页面会显示匹配摘要的脚本成功执行，另一条故意填错的摘要会触发加载错误。控制台可以看到浏览器给出的 SRI 错误。
 
 ## 审计部署后的 HTML
 
-`audit-html` 读取部署目录中的 UTF-8 HTML，检查静态 `script[src]` 与未禁用的 `link[rel=stylesheet][href]` 是否带有 `integrity`，并用本地资源字节校验摘要。可以一次检查多个页面，也可以设置最低算法强度。
+`audit-html` 读取部署目录中的 UTF-8 HTML，检查静态 `script[src]`、未禁用的 `link[rel=stylesheet][href]` 以及 `link[rel=preload]`、`link[rel=modulepreload]` 是否带有 `integrity`，并用本地资源字节校验摘要。可以一次检查多个页面，也可以设置最低算法强度。页面路径可以写在命令行上，也可以用 `--pages-from` 从 UTF-8 清单读取（每行一个，支持 BOM 和 CRLF），两者会合并使用；同一页面重复出现以退出码 `2` 拒绝。
 
 ```sh
 moon run cmd/main --target wasm -- audit-html --root dist --json --min-algorithm sha384 index.html docs/index.html
+moon run cmd/main --target wasm -- audit-html --root dist --pages-from pages.txt --json
 ```
 
 页面参数是相对于 `--root` 的文件路径。相对资源 URL 默认从页面目录解析，以 `/` 开头的 URL 从部署根目录解析。支持 UTF-8 百分号编码，校验时只使用路径部分。
@@ -98,10 +103,11 @@ moon run cmd/main --target wasm -- audit-html --root dist --baseline approved-in
 
 ### 比较两次发布的 HTML 引用
 
-在部署前比较两次构建的同名页面。即使两次 `audit-html` 都通过，`diff-html` 仍能报告删除的脚本、新增的样式表、有效 SRI 声明变化和共同引用在 DOM 中的相对顺序变化。
+在部署前比较两次构建的同名页面。即使两次 `audit-html` 都通过，`diff-html` 仍能报告删除的脚本、新增的样式表、有效 SRI 声明变化和共同引用在 DOM 中的相对顺序变化。页面路径可以写在命令行上，也可以用 `--pages-from` 从 UTF-8 清单读取，同一页面重复出现以退出码 `2` 拒绝。
 
 ```sh
 moon run cmd/main --target wasm -- diff-html --before-root previous-dist --after-root dist --json index.html docs/index.html
+moon run cmd/main --target wasm -- diff-html --before-root previous-dist --after-root dist --pages-from pages.txt
 ```
 
 本地引用按类型、解析后的文件路径及原样保留的查询参数和片段匹配。外部 HTTP(S) 引用按去除首尾空白后的 URL 文本匹配。同一键的重复引用按出现顺序配对。有效 SRI 摘要的重排、重复项和弱于最强算法的摘要变化不会产生差异。
@@ -119,6 +125,14 @@ moon run cmd/main --target wasm -- review-release --before-root examples/rollout
 MoonBit 先建立页面到本地脚本和样式表的引用关系，并校验两版各自的文件。旧页面若无法接受即将覆盖的字节，页面必须先切换。新页面若无法使用旧资源或资源尚未登记，资源必须先发布。规划器以页面和资源操作为节点，将这些约束连成有向图，再做分层拓扑排序。出现环时会给出一条首尾相接的冲突路径。
 
 退出码 `0` 表示有可行计划，按 `waves` 的顺序执行，每一批内的动作可独立完成。退出码 `1` 表示受约束阻塞，`cycle` 给出冲突路径，JSON 中的 `waves` 只记录已能排序的前缀。退出码 `2` 表示参数、页面或同侧完整性校验失败。JSON 的 `constraints` 列出所有直接的先后约束。
+
+#### 导出约束关系图
+
+`--graph mermaid` 或 `--graph dot` 把这次发布的全部动作和约束渲染成 Mermaid 或 Graphviz 图，便于人工评审或粘贴进文档。节点按规划器顺序编号，波次以子图分组；被冲突环阻塞的动作不在任何波次子图中，Mermaid 用 `style`、Graphviz 用 `color=red` 标出它们。该选项与 `--json` 和 `--check-order` 互斥，退出码与文本模式相同。
+
+```sh
+moon run cmd/main --target wasm -- review-release --before-root examples/rollout/before --after-root examples/rollout/overwrite --graph mermaid index.html hours/index.html
+```
 
 请列出受发布影响的全部页面。直接传入的页面需要在两个快照中均存在。计划覆盖这些页面的静态本地脚本和样式表，按单文件原子更新建模。部署目录须将不同的计划路径映射为可独立更新的文件，尤其要留意大小写别名和符号链接。只在新版出现的资源按待发布处理，旧版仍可能用到的资源保留在部署目录。远程引用、缓存传播及浏览器运行时加载由站点发布流程处理。
 
@@ -162,10 +176,11 @@ moon run cmd/main --target wasm -- review-release --before-root examples/rollout
 
 ## 批量生成与校验
 
-在项目根目录列出要发布的资源，生成一份 JSON 清单：
+在项目根目录列出要发布的资源，生成一份 JSON 清单。条目包含 `*` 或 `?` 时按通配符展开：`**` 跨整段路径，`*` 和 `?` 只作用于单个路径段，其余字符按字面匹配。展开结果按字典序排序；模式没有命中任何文件、模式本身非法或与显式路径重复时退出码为 `2`。
 
 ```sh
 moon run cmd/main --target wasm -- manifest examples/hello.js examples/style.css > integrity.json
+moon run cmd/main --target wasm -- manifest --root dist 'assets/*.js' 'assets/**/*.css' > integrity.json
 moon run cmd/main --target wasm -- check-manifest integrity.json
 ```
 
@@ -223,7 +238,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.8.0
+moon add yiwnagmolu/moonsri@0.9.0
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：
@@ -266,7 +281,7 @@ fn main {
 
 子包 `yiwnagmolu/moonsri/audit` 的 `scan(html)` 返回 HTML 中的脚本和样式表引用、对应的 `integrity` 和首个生效的 `base href`。它依赖 [moonbit-community/html](https://mooncakes.io/docs/moonbit-community/html/) 解析 HTML，可以在 MoonBit 构建工具里独立调用。
 
-子包 `yiwnagmolu/moonsri/rollout` 提供 `plan` 和 `begin_replay`。部署适配器可在内存中保存回放状态，逐条调用 `apply(action)`。成功后仅更新该动作的直接后继，拒绝的动作可在满足依赖后重试。`ready()` 以确定顺序返回当前可执行的动作，`completed()` 和 `total()` 可用于进度显示。
+子包 `yiwnagmolu/moonsri/rollout` 提供 `plan` 和 `begin_replay`。部署适配器可在内存中保存回放状态，逐条调用 `apply(action)`。成功后仅更新该动作的直接后继，拒绝的动作可在满足依赖后重试。`ready()` 以确定顺序返回当前可执行的动作，`pending()` 按原始顺序列出尚未执行的全部动作，`completed()` 和 `total()` 可用于进度显示。
 
 ## 范围与行为
 
@@ -286,6 +301,6 @@ moon info
 moon fmt
 ```
 
-测试包含 SHA-2 已知向量、SRI 算法选择、发布模型穷举、深链和宽图。CI 在 WebAssembly 和 JavaScript 目标运行库测试，并对真实目录回放合法和违规日志、核实发布与回退的现场文件。端到端基准的工作负载、运行说明和逐次测量见[基准报告](benchmarks/README.md)。
+测试包含 SHA-2 已知向量、SRI 算法选择、发布模型穷举、深链和宽图，以及通配符匹配、图渲染、页面清单和预加载引用的边界用例。CI 在 WebAssembly 和 JavaScript 目标运行库测试，并对真实目录回放合法和违规日志、核实发布与回退的现场文件。端到端基准的工作负载、运行说明和逐次测量见[基准报告](benchmarks/README.md)。
 
 本项目使用 [Apache-2.0 许可证](LICENSE)。

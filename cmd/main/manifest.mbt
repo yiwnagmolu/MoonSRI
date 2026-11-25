@@ -51,27 +51,65 @@ fn generate_manifest(args : ArrayView[String]) -> Int32 {
   }
   let algorithms = algorithms.unwrap_or([@sri.Sha384])
   let manifest : Map[String, String] = Map([])
-  for path in paths {
+  let add_asset = fn(path : String) -> Int32? {
     let quoted_path = Json::string(path).stringify()
     if !@manifest.is_asset_path(path) {
       eprintln("Invalid asset path: " + quoted_path)
-      return 2
+      return Some(2)
     }
     if manifest.contains(path) {
       eprintln("Duplicate asset path: " + quoted_path)
-      return 2
+      return Some(2)
     }
     if root is Some(_) && !validate_relative_asset(path) {
-      return 2
+      return Some(2)
     }
     let file = asset_file(root, path)
     let metadata = generate_file_metadata(file, algorithms) catch {
       _ => {
         eprintln("Cannot read file: " + quoted_path)
-        return 2
+        return Some(2)
       }
     }
     manifest[path] = metadata
+    None
+  }
+  // Glob entries expand in input order against one walk of the deployment
+  // root, so the tree is listed at most once even for several patterns.
+  let mut universe : Array[String]? = None
+  for entry in paths {
+    if !has_glob_meta(entry) {
+      guard add_asset(entry) is None else { return 2 }
+      continue
+    }
+    guard glob_pattern_error(entry) is None else {
+      eprintln("Invalid asset glob: " + Json::string(entry).stringify())
+      return 2
+    }
+    if universe is None {
+      let base = root.unwrap_or("")
+      universe = list_asset_files(base)
+      guard universe is Some(_) else {
+        eprintln(
+          "Cannot list assets under: " +
+          Json::string(if base.is_empty() { "." } else { base }).stringify(),
+        )
+        return 2
+      }
+    }
+    guard universe is Some(files) else { return 2 }
+    let matches = files
+      .iter()
+      .filter(file => glob_match(entry, file))
+      .to_array()
+    matches.sort_by((left, right) => left.lexical_compare(right))
+    if matches.is_empty() {
+      eprintln("No asset matches glob: " + Json::string(entry).stringify())
+      return 2
+    }
+    for path in matches {
+      guard add_asset(path) is None else { return 2 }
+    }
   }
   let output = @manifest.encode(manifest) catch {
     error => {

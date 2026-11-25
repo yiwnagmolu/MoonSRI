@@ -86,6 +86,77 @@ def cycle(before, after):
     return Shape([383], 2, 3)
 
 
+def mixed(before, after):
+    """Switch, retire and launch pages around two changing assets."""
+    js, css = b'console.log("docs");\n', b"table { width: 100% }\n"
+    old_banner, new_banner = b"banner v1\n", b"banner v2\n"
+    launch = b'console.log("launch");\n'
+    doc_tags = script("assets/docs.js", token(js)) + stylesheet("assets/docs.css", token(css))
+    for root, banner in ((before, old_banner), (after, new_banner)):
+        put(root, "assets/docs.js", js)
+        put(root, "assets/docs.css", css)
+        put(root, "assets/banner.js", banner)
+    put(after, "assets/launch.js", launch)
+    # Switched banner pages accept both versions, so they only wait for the
+    # launch asset; retirement pages must switch before the banner is covered.
+    both_banners = token(old_banner) + " " + token(new_banner)
+    for i in range(40):
+        name = f"guide/ch-{i:03}.html"
+        put(before, name, f"<!doctype html><head>{doc_tags}{script('assets/banner.js', token(old_banner))}<h1>Old {i}</h1></body>")
+        put(after, name, f"<!doctype html><head>{doc_tags}{script('assets/banner.js', both_banners)}<h1>New {i}</h1></body>")
+    for i in range(40, 80):
+        name = f"guide/ch-{i:03}.html"
+        body = f"<!doctype html><head>{doc_tags}<h1>Guide {i}</h1></body>"
+        put(before, name, body)
+        put(after, name, body + "<p>Updated</p>")
+    for i in range(80, 120):
+        put(before, f"guide/ch-{i:03}.html", f"<!doctype html><head>{doc_tags}{script('assets/banner.js', token(old_banner))}<h1>Retired {i}</h1></body>")
+    launch_tags = script("assets/launch.js", token(launch)) + doc_tags
+    for i in range(40):
+        put(after, f"launch/p-{i:03}.html", f"<!doctype html><head>{launch_tags}<h1>Launch {i}</h1></body>")
+    # Eighty page actions precede the banner replacement (40 banner switches
+    # plus 40 retirements) and the launch pages wait for their new asset.
+    return Shape([121, 41], 120)
+
+
+def mesh(before, after):
+    """Sixty-four pages share eight assets, four of which change in place."""
+    pages, count, replaced = 64, 8, 4
+    old = [f'console.log("asset {i} v1");\n'.encode() for i in range(count)]
+    new = [f'console.log("asset {i} v2");\n'.encode() for i in range(count)]
+    for i in range(count):
+        put(before, f"assets/a{i}.js", old[i])
+        put(after, f"assets/a{i}.js", new[i] if i < replaced else old[i])
+    for page in range(pages):
+        name = f"mesh/p{page:03}.html"
+        before_tags = "".join(
+            script(f"assets/a{i}.js", token(old[i]) + " " + token(new[i]) if i < replaced else token(old[i]))
+            for i in range(count)
+        )
+        after_tags = "".join(
+            script(f"assets/a{i}.js", token(new[i] if i < replaced else old[i]))
+            for i in range(count)
+        )
+        put(before, name, f"<!doctype html><head>{before_tags}<h1>{page}</h1></body>")
+        put(after, name, f"<!doctype html><head>{after_tags}<h1>{page}</h1></body>")
+    return Shape([replaced, pages], replaced * pages)
+
+
+def deep(before, after):
+    """A 255-node chain where every wave releases exactly one action."""
+    n = 128
+    old = [f'console.log("chain {i} old");\n'.encode() for i in range(n - 1)]
+    new = [f'console.log("chain {i} new");\n'.encode() for i in range(n - 1)]
+    for i in range(n - 1):
+        put(before, f"assets/a{i}.js", old[i])
+        put(after, f"assets/a{i}.js", new[i])
+    for i in range(n):
+        name = f"chain/p{i:03}.html"
+        put(before, name, (script(f"assets/a{i - 1}.js", token(old[i - 1])) if i else "") + f"<h1>{i}</h1>")
+        put(after, name, (script(f"assets/a{i}.js", token(new[i])) if i < n - 1 else "") + f"<h1>{i} v2</h1>")
+    return Shape([1] * (2 * n - 1), 2 * (n - 1))
+
+
 BOOTSTRAP = {
     "5.3.2": "sha512-D32nmNWiQHo94BKHLmOrdjlL05q1c8oxbtBphQFb9Z5to6eGRDCm0QgeaZ4zFBHzfg2++rqa2JkqCcxDy0sH0g==",
     "5.3.3": "sha512-8HLCdWgyoMguSO9o+aH+iuZ+aht+mzW0u3HIMzVu7Srrpv7EBBxTnrFlSCskwdY1+EOFQSm7uMJhNQHkdPcmjg==",
@@ -118,6 +189,9 @@ CASES = {
     "repeat-64x64": lambda before, after: shared(before, after, 96, 64, 64),
     "wide-launch": wide,
     "late-cycle": cycle,
+    "mixed-inventory": mixed,
+    "dense-mesh": mesh,
+    "deep-chain": deep,
     "bootstrap-upgrade": bootstrap,
 }
 

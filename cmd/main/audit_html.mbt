@@ -17,11 +17,27 @@ priv struct AuditFinding {
 }
 
 ///|
+/// One audit reports each page at most once, so repeated paths are an input
+/// mistake rather than a request to re-audit.
+fn reject_duplicate_pages(pages : ArrayView[String]) -> Bool {
+  let seen : Set[String] = Set([])
+  for page in pages {
+    if seen.contains(page) {
+      eprintln("Duplicate page: " + Json::string(page).stringify())
+      return false
+    }
+    seen.add(page)
+  }
+  true
+}
+
+///|
 fn run_audit_html(args : ArrayView[String]) -> Int32 {
   let mut root = None
   let mut json_output = false
   let mut minimum = None
   let mut baseline_path = None
+  let mut pages_from = None
   let mut index = 0
   while index < args.length() {
     match args[index] {
@@ -38,6 +54,10 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
       }
       "--baseline" if baseline_path is None && index + 1 < args.length() => {
         baseline_path = Some(args[index + 1])
+        index += 2
+      }
+      "--pages-from" if pages_from is None && index + 1 < args.length() => {
+        pages_from = Some(args[index + 1])
         index += 2
       }
       "--min-algorithm" if minimum is None && index + 1 < args.length() => {
@@ -58,10 +78,25 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
       _ => break
     }
   }
-  guard root is Some(prefix) && index < args.length() else {
+  guard root is Some(prefix) else {
     usage()
     return 2
   }
+  let pages : Array[String] = []
+  for page in args[index:] {
+    pages.push(page)
+  }
+  if pages_from is Some(path) {
+    guard read_page_list(path, "page list") is Some(listed) else { return 2 }
+    for page in listed {
+      pages.push(page)
+    }
+  }
+  guard !pages.is_empty() else {
+    usage()
+    return 2
+  }
+  guard reject_duplicate_pages(pages[:]) else { return 2 }
   let reports : Array[Json] = []
   let baseline = match baseline_path {
     Some(path) => {
@@ -79,7 +114,7 @@ fn run_audit_html(args : ArrayView[String]) -> Int32 {
     tokens: Map([]),
   }
   let mut code = 0
-  for page in args[index:] {
+  for page in pages {
     let (page_code, report) = audit_page(run, page, json_output)
     if page_code > code {
       code = page_code
@@ -220,6 +255,8 @@ fn audit_kind(kind : @audit.ResourceKind) -> String {
   match kind {
     @audit.Script => "script"
     @audit.Stylesheet => "stylesheet"
+    @audit.Preload => "preload"
+    @audit.ModulePreload => "modulepreload"
   }
 }
 

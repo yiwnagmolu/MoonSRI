@@ -38,6 +38,56 @@ test "resume after an early action and cross wave boundaries" {
 }
 
 ///|
+test "pending lists unapplied actions in plan order as progress advances" {
+  let first = @rollout.PublishAsset("a.js")
+  let second = @rollout.PublishAsset("b.js")
+  let switch = @rollout.SwitchPage("index.html")
+  let replay = @rollout.begin_replay({
+    waves: [[first, second], [switch]],
+    cycle: [],
+    constraints: [(first, switch)],
+  }).unwrap()
+  assert_eq(replay.pending(), [first, second, switch])
+  replay.apply(second).unwrap()
+  assert_eq(replay.pending(), [first, switch])
+  assert_eq(replay.pending().length(), replay.total() - replay.completed())
+  replay.apply(first).unwrap()
+  assert_eq(replay.pending(), [switch])
+  replay.apply(switch).unwrap()
+  assert_eq(replay.pending(), [])
+  assert_true(replay.is_complete())
+}
+
+///|
+test "pending and ready stay consistent on a wide release" {
+  let publish = @rollout.PublishAsset("new.js")
+  let replace = @rollout.ReplaceAsset("old.js")
+  let pages : Array[@rollout.Page] = Array::makei(64, i => {
+    path: "page-\{i}.html",
+    before: Map([("old.js", false)]),
+    after: Map([("new.js", false)]),
+  })
+  let replay = @rollout.begin_replay(
+    @rollout.plan(
+      pages,
+      Map([("old.js", @rollout.Replace), ("new.js", @rollout.Publish)]),
+    ),
+  ).unwrap()
+  let starting = replay.pending()
+  assert_eq(starting.length(), 66)
+  // Replay flattens the waves, so pending follows wave order, not the
+  // planner's internal asset-first node order.
+  assert_eq(starting.get(0), Some(publish))
+  assert_eq(starting.get(1), Some(@rollout.SwitchPage("page-0.html")))
+  assert_eq(starting.get(65), Some(replace))
+  replay.apply(publish).unwrap()
+  let pending = replay.pending()
+  assert_eq(pending.length(), 65)
+  assert_true(pending.contains(replace))
+  assert_false(pending.contains(publish))
+}
+
+///|
 test "empty, cyclic and malformed plans have distinct outcomes" {
   let empty = @rollout.begin_replay(@rollout.plan([], Map([]))).unwrap()
   assert_true(empty.is_complete())

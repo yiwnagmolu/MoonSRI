@@ -176,6 +176,20 @@ pub fn Replay::ready(self : Replay) -> Array[Action] {
 }
 
 ///|
+/// Every action that has not been applied yet, in original plan order. Unlike
+/// `ready`, these actions may still be waiting on their prerequisites.
+pub fn Replay::pending(self : Replay) -> Array[Action] {
+  let remaining = self.total() - self.completed()
+  let result = Array(capacity=remaining)
+  for node, state in self.outstanding {
+    if state >= 0 {
+      result.push(self.actions[node])
+    }
+  }
+  result
+}
+
+///|
 pub fn Replay::completed(self : Replay) -> Int32 {
   self.applied
 }

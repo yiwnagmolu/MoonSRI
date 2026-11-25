@@ -191,3 +191,73 @@ test "parses whitespace, unknown algorithms and options" {
     is Mismatch,
   )
 }
+
+///|
+/// Empty input has well-known SHA-2 digests; hashing zero bytes must not
+/// accidentally yield the one-block padding state of a single character.
+test "generates the empty-input digests for every algorithm" {
+  let empty = @utf8.encode("")[:]
+  assert_eq(
+    @moonsri.generate(empty, Sha256),
+    "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+  )
+  assert_eq(
+    @moonsri.generate(empty, Sha384),
+    "sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb",
+  )
+  assert_eq(
+    @moonsri.generate(empty, Sha512),
+    "sha512-z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg==",
+  )
+  for algorithm in [@moonsri.Sha256, @moonsri.Sha384, @moonsri.Sha512] {
+    assert_true(
+      @moonsri.verify_bytes(empty, @moonsri.generate(empty, algorithm)) is Match,
+    )
+  }
+}
+
+///|
+test "canonical metadata keeps a lone token verbatim and deduplicates sets" {
+  assert_eq(@moonsri.canonical_metadata("sha256-Only"), Some("sha256-Only"))
+  assert_eq(
+    @moonsri.canonical_metadata("SHA512-B sha512-B sha512-A"),
+    Some("sha512-A sha512-B"),
+  )
+  // The strongest family wins even when weaker digests differ.
+  assert_eq(@moonsri.canonical_metadata("sha256-A sha384-B"), Some("sha384-B"))
+  assert_eq(@moonsri.canonical_metadata(""), None)
+}
+
+///|
+test "token providers returning foreign algorithms fail closed" {
+  let data = @utf8.encode("abc")
+  let sha384 = @moonsri.generate(data[:], Sha384)
+  // A provider answering with the wrong algorithm cannot manufacture a match.
+  assert_true(
+    @moonsri.verify_with_token("sha512-x", _ => sha384) is Ok(Mismatch),
+  )
+  assert_true(
+    @moonsri.verify_with_token("sha384-x", _ => "sha384") is Ok(Mismatch),
+  )
+  assert_true(
+    @moonsri.verify_with_token("sha384-x", _ => sha384) is Ok(Mismatch),
+  )
+}
+
+///|
+test "verify_with_token reports minimum violations without hashing" {
+  let data = @utf8.encode("abc")
+  let requested : Array[@moonsri.Algorithm] = []
+  assert_true(
+    @moonsri.verify_with_token(
+      "sha256-deadbeef",
+      algorithm => {
+        requested.push(algorithm)
+        @moonsri.generate(data[:], algorithm)
+      },
+      minimum=Some(Sha512),
+    )
+    is Err(Sha256),
+  )
+  assert_eq(requested.length(), 0)
+}

@@ -93,6 +93,20 @@ jobs:
           unsafe="$(run_cli tag script examples/hello.js 'javascript:alert(1)')" || status=$?
           test "$status" -eq 2
           test -z "$unsafe"
+          preload="$(run_cli tag preload examples/hello.js 'hello.js?v=1' script)"
+          [[ "$preload" == *'<link rel="preload" href="hello.js?v=1" as="script"'* ]]
+          module_preload="$(run_cli tag modulepreload examples/hello.js 'app.mjs')"
+          [[ "$module_preload" == *'<link rel="modulepreload" href="app.mjs"'* ]]
+          sha512_preload="$(run_cli tag preload examples/hello.js 'hello.js' font sha512)"
+          [[ "$sha512_preload" == *'as="font" integrity="sha512-'* ]]
+          status=0
+          bad="$(run_cli tag preload examples/hello.js 'hello.js' xhr)" || status=$?
+          test "$status" -eq 2
+          test -z "$bad"
+          status=0
+          bad="$(run_cli tag preload examples/hello.js 'hello.js')" || status=$?
+          test "$status" -eq 2
+          test -z "$bad"
       - name: Batch manifest smoke test
         shell: bash
         run: |
@@ -151,6 +165,42 @@ jobs:
           report="$(run_cli check-manifest "$manifest")" || status=$?
           test "$status" -eq 1
           grep -Fq "mismatch: \"$asset\"" <<< "$report"
+
+          glob_dir="$temp_dir/glob-site"
+          mkdir -p "$glob_dir/assets/css"
+          cp examples/hello.js "$glob_dir/assets/app.js"
+          cp examples/hello.js "$glob_dir/assets/lib.v2.js"
+          cp examples/style.css "$glob_dir/assets/css/site.css"
+          cp examples/style.css "$glob_dir/assets/top.css"
+          run_cli manifest --root "$glob_dir" 'assets/*.js' 'assets/**/*.css' > "$temp_dir/glob.json"
+          grep -Fq '"assets/app.js"' "$temp_dir/glob.json"
+          grep -Fq '"assets/lib.v2.js"' "$temp_dir/glob.json"
+          grep -Fq '"assets/css/site.css"' "$temp_dir/glob.json"
+          grep -Fq '"assets/top.css"' "$temp_dir/glob.json"
+          run_cli check-manifest --root "$glob_dir" "$temp_dir/glob.json"
+          status=0
+          report="$(run_cli manifest --root "$glob_dir" 'assets/*.woff2' 2>"$temp_dir/glob.err")" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          [[ "$(<"$temp_dir/glob.err")" == *'No asset matches glob:'* ]]
+          status=0
+          report="$(run_cli manifest --root "$glob_dir" 'assets//x.js' 2>"$temp_dir/glob.err")" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          [[ "$(<"$temp_dir/glob.err")" == *'Invalid asset glob:'* ]]
+          status=0
+          report="$(run_cli manifest --root "$glob_dir" 'assets/*.js' 'assets/app.js' 2>"$temp_dir/glob.err")" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          [[ "$(<"$temp_dir/glob.err")" == *'Duplicate asset path:'* ]]
+          run_cli manifest 'examples/*.css' > "$temp_dir/cwd-glob.json"
+          grep -Fq '"examples/style.css"' "$temp_dir/cwd-glob.json"
+          run_cli check-manifest "$temp_dir/cwd-glob.json" >/dev/null
+          status=0
+          report="$(run_cli manifest 'nonexist/*.js' 2>"$temp_dir/cwd.err")" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          [[ "$(<"$temp_dir/cwd.err")" == *'No asset matches glob:'* ]]
 
           status=0
           report="$(run_cli check-manifest --json "$manifest")" || status=$?
@@ -245,6 +295,26 @@ jobs:
           test "$status" -eq 1
           node -e 'const [rebuilt, untracked] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); const a = rebuilt.resources[0], b = untracked.resources[0]; if (a.status !== "match" || a.baseline.declaration !== "drift" || a.baseline.content !== "mismatch" || b.baseline.declaration !== "untracked" || b.baseline.content !== "not_checked") process.exit(1)' <<< "$report"
 
+          run_cli tag preload examples/hello.js 'app%20main.js' script > "$site/docs/preload.html"
+          printf '%s\n' '<link rel=stylesheet href=/style.css>' >> "$site/docs/preload.html"
+          status=0
+          report="$(run_cli audit-html --root "$site" --json docs/preload.html)" || status=$?
+          test "$status" -eq 1
+          node -e 'const [page] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (page.resources[0].kind !== "preload" || page.resources[0].status !== "match" || page.resources[1].kind !== "stylesheet" || page.resources[1].status !== "missing_integrity") process.exit(1)' <<< "$report"
+
+          printf '%s\n' 'docs/ok.html' 'docs/base.html' > "$site/pages.txt"
+          report="$(run_cli audit-html --root "$site" --pages-from "$site/pages.txt" --json)"
+          node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages[0].page !== "docs/ok.html" || pages[1].page !== "docs/base.html") process.exit(1)' <<< "$report"
+          printf '%s\n' 'docs/ok.html' 'docs/ok.html' > "$site/dup-pages.txt"
+          status=0
+          report="$(run_cli audit-html --root "$site" --pages-from "$site/dup-pages.txt" --json)" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          status=0
+          report="$(run_cli audit-html --root "$site" --pages-from "$site/missing.txt" --json)" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+
       - name: HTML reference diff smoke test
         shell: bash
         run: |
@@ -275,6 +345,15 @@ jobs:
           run_cli audit-html --root "$before" docs/index.html docs/same.html
           run_cli audit-html --root "$after" docs/index.html docs/same.html
           run_cli diff-html --before-root "$before" --after-root "$after" docs/same.html
+          printf '%s\n' 'docs/index.html' 'docs/same.html' > "$site/pages.txt"
+          status=0
+          report="$(run_cli diff-html --before-root "$before" --after-root "$after" --pages-from "$site/pages.txt" --json)" || status=$?
+          test "$status" -eq 1
+          node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages[0].status !== "changed" || pages[1].status !== "unchanged") process.exit(1)' <<< "$report"
+          status=0
+          report="$(run_cli diff-html --before-root "$before" --after-root "$after" --json docs/index.html docs/index.html)" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
           status=0
           report="$(run_cli diff-html --before-root "$before" --after-root "$after" --json docs/same.html docs/index.html)" || status=$?
           test "$status" -eq 1
@@ -298,6 +377,39 @@ jobs:
           report="$(run_cli diff-html --before-root "$before" --after-root "$after" --json docs/index.html docs/missing.html docs/invalid.html)" || status=$?
           test "$status" -eq 2
           node -e 'const [changed, missing, invalid] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (changed.status !== "changed" || missing.status !== "error" || missing.after_error !== "read_error" || invalid.status !== "error" || invalid.before_error !== "invalid_url" || invalid.after_error !== "invalid_url") process.exit(1)' <<< "$report"
+
+      - name: Constraint graph smoke test
+        shell: bash
+        run: |
+          run_cli() {
+            moon run cmd/main --target ${{ matrix.target }} -- "$@"
+          }
+          graph="$(run_cli review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --graph mermaid index.html hours/index.html)"
+          [[ "$graph" == *'flowchart LR'* ]]
+          [[ "$graph" == *'n0["publish_asset assets/app.v2.js"]'* ]]
+          [[ "$graph" == *'subgraph wave2'* ]]
+          [[ "$graph" == *'n0 --> n2'* ]]
+          status=0
+          blocked="$(run_cli review-release --before-root examples/rollout/before --after-root examples/rollout/overwrite --graph mermaid index.html hours/index.html)" || status=$?
+          test "$status" -eq 1
+          [[ "$blocked" == *'style n0 fill:#ffcccc'* ]]
+          [[ "$blocked" == *'n2 --> n0'* ]]
+          dot="$(run_cli review-release --before-root examples/rollout/before --after-root examples/rollout/overwrite --graph dot index.html hours/index.html)"
+          [[ "$dot" == *'digraph moonsri {'* ]]
+          [[ "$dot" == *'subgraph cluster_wave1'* ]]
+          [[ "$dot" == *'color=red'* ]]
+          status=0
+          report="$(run_cli review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --graph svg index.html hours/index.html)" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          status=0
+          report="$(run_cli review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --graph mermaid --json index.html hours/index.html)" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
+          status=0
+          report="$(run_cli review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --graph mermaid --check-order examples/rollout/order.json index.html hours/index.html)" || status=$?
+          test "$status" -eq 2
+          test -z "$report"
 
       - name: Review and replay a phased site release
         env:

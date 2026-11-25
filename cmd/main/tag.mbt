@@ -1,24 +1,44 @@
 ///|
 fn run_tag(args : ArrayView[String]) -> Int32 {
-  guard args.length() == 3 || args.length() == 4 else {
-    usage()
-    return 2
+  let kind = args.get(0)
+  // A preload link reserves one operand for the fetch destination that
+  // browsers attach to the request.
+  let destination : String? = match kind {
+    Some("preload") =>
+      if args.length() == 4 || args.length() == 5 {
+        guard parse_preload_destination(args[3]) is Some(value) else {
+          return 2
+        }
+        Some(value)
+      } else {
+        usage()
+        return 2
+      }
+    Some("script") | Some("stylesheet") | Some("modulepreload") =>
+      if args.length() == 3 || args.length() == 4 {
+        None
+      } else {
+        usage()
+        return 2
+      }
+    _ => {
+      eprintln("Expected a script, stylesheet, preload or modulepreload tag")
+      return 2
+    }
   }
-  let kind = args[0]
-  guard kind == "script" || kind == "stylesheet" else {
-    eprintln("Expected a script or stylesheet tag")
-    return 2
-  }
-  let url = args[2]
-  guard is_resource_url(url) else {
+  let kind = kind.unwrap()
+  guard is_resource_url(args[2]) else {
     eprintln(
       "Expected a relative or HTTP(S) resource URL: " +
-      Json::string(url).stringify(),
+      Json::string(args[2]).stringify(),
     )
     return 2
   }
-  let algorithms = if args.length() == 4 {
-    guard parse_algorithms(args[3]) is Some(selected) else { return 2 }
+  let algorithms = if (kind == "preload" && args.length() == 5) ||
+    (kind != "preload" && args.length() == 4) {
+    guard parse_algorithms(args[args.length() - 1]) is Some(selected) else {
+      return 2
+    }
     selected
   } else {
     [@sri.Sha384]
@@ -30,14 +50,51 @@ fn run_tag(args : ArrayView[String]) -> Int32 {
       return 2
     }
   }
-  let escaped_url = escape_html_attribute(url)
+  let escaped_url = escape_html_attribute(args[2])
   let attributes = "\" integrity=\"" + metadata + "\" crossorigin=\"anonymous\""
-  if kind == "script" {
-    println("<script src=\"" + escaped_url + attributes + "></script>")
-  } else {
-    println("<link rel=\"stylesheet\" href=\"" + escaped_url + attributes + ">")
+  match kind {
+    "script" =>
+      println("<script src=\"" + escaped_url + attributes + "></script>")
+    "stylesheet" =>
+      println(
+        "<link rel=\"stylesheet\" href=\"" + escaped_url + attributes + ">",
+      )
+    "modulepreload" =>
+      println(
+        "<link rel=\"modulepreload\" href=\"" + escaped_url + attributes + ">",
+      )
+    _ => {
+      let as_attribute = match destination {
+        Some(value) => " as=\"" + value + "\""
+        None => ""
+      }
+      println(
+        "<link rel=\"preload\" href=\"" +
+        escaped_url +
+        "\"" +
+        as_attribute +
+        " integrity=\"" +
+        metadata +
+        "\" crossorigin=\"anonymous\">",
+      )
+    }
   }
   0
+}
+
+///|
+fn parse_preload_destination(value : String) -> String? {
+  let destinations = [
+    "audio", "document", "embed", "fetch", "font", "image", "object", "script", "style",
+    "track", "video", "worker",
+  ]
+  for name in destinations {
+    if value.equal_ignore_ascii_case(name) {
+      return Some(name)
+    }
+  }
+  eprintln("Unknown preload destination: " + Json::string(value).stringify())
+  None
 }
 
 ///|

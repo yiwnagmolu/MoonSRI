@@ -2,6 +2,8 @@
 pub(all) enum ResourceKind {
   Script
   Stylesheet
+  Preload
+  ModulePreload
 }
 
 ///|
@@ -43,11 +45,11 @@ pub fn scan(source : String) -> Document {
       }
     } else if doc.is_html_element(node, "link") {
       if doc.get_attribute(node, "rel") is Some(rel) &&
-        has_stylesheet_rel(rel) &&
-        doc.get_attribute(node, "disabled") is None &&
-        doc.get_attribute(node, "href") is Some(url) {
+        doc.get_attribute(node, "href") is Some(url) &&
+        link_resource_kind(rel) is Some(kind) &&
+        !(kind is Stylesheet && doc.get_attribute(node, "disabled") is Some(_)) {
         references.push({
-          kind: Stylesheet,
+          kind,
           url,
           integrity: doc.get_attribute(node, "integrity"),
         })
@@ -96,19 +98,50 @@ fn is_script(doc : @html5.Document, node : Int32) -> Bool {
 }
 
 ///|
-fn has_stylesheet_rel(rel : String) -> Bool {
-  let normalized = StringBuilder()
+fn link_resource_kind(rel : String) -> ResourceKind? {
+  // Scan the token list in place: applied stylesheets win over a duplicate
+  // preload of the same URL, and no intermediate token array is built.
+  let mut result = None
+  let mut start = 0
+  let mut offset = 0
   for ch in rel {
-    normalized.write_char(
-      if ch == '\t' || ch == '\n' || ch == '\r' || ch == '\u{000c}' {
-        ' '
-      } else {
-        ch
-      },
-    )
+    let end = offset
+    offset += ch.utf16_len()
+    if is_rel_space(ch) {
+      if start < end {
+        result = classify_rel_token(result, rel.exact_view(start~, end~))
+      }
+      start = offset
+    }
   }
-  normalized
-  .to_string()
-  .split(" ")
-  .any(token => token.equal_ignore_ascii_case("stylesheet"))
+  if start < offset {
+    result = classify_rel_token(result, rel.exact_view(start~))
+  }
+  result
+}
+
+///|
+fn is_rel_space(ch : Char) -> Bool {
+  ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\u{000c}'
+}
+
+///|
+fn classify_rel_token(
+  current : ResourceKind?,
+  token : StringView,
+) -> ResourceKind? {
+  if token.equal_ignore_ascii_case("stylesheet") {
+    return Some(Stylesheet)
+  }
+  if token.equal_ignore_ascii_case("modulepreload") {
+    return if current is Some(Stylesheet) {
+      current
+    } else {
+      Some(ModulePreload)
+    }
+  }
+  if token.equal_ignore_ascii_case("preload") {
+    return if current is Some(_) { current } else { Some(Preload) }
+  }
+  current
 }

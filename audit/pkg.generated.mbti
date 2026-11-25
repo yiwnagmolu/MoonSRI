@@ -21,6 +21,8 @@ pub(all) struct Reference {
 pub(all) enum ResourceKind {
   Script
   Stylesheet
+  Preload
+  ModulePreload
 }
 
 // Type aliases

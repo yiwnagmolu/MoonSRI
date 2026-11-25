@@ -52,6 +52,7 @@ pub struct Replay {
 pub fn Replay::apply(Self, Action) -> Result[Unit, ReplayError]
 pub fn Replay::completed(Self) -> Int32
 pub fn Replay::is_complete(Self) -> Bool
+pub fn Replay::pending(Self) -> Array[Action]
 pub fn Replay::ready(Self) -> Array[Action]
 pub fn Replay::total(Self) -> Int32
 

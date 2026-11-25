@@ -28,3 +28,38 @@ test "scan retains the first effective base href" {
   )
   assert_true(page.base_href is Some("/assets/"))
 }
+
+///|
+test "scan counts preload and modulepreload links as integrity declarations" {
+  let source =
+    #|<link rel=preload href=app.js as=script integrity="sha384-js">
+    #|<link rel="MODULEPRELOAD" href="/app.mjs" integrity="sha512-mjs">
+    #|<link rel="preload stylesheet" href="theme.css" integrity="sha384-css">
+    #|<link rel=preload href=font.woff2 as=font crossorigin=anonymous>
+    #|<link rel="preconnect dns-prefetch" href="https://cdn.example">
+    #|<link rel=prefetch href=skip.css>
+  let page = @audit.scan(source)
+  assert_eq(page.references.length(), 4)
+  assert_true(page.references[0].kind is @audit.Preload)
+  assert_eq(page.references[0].url, "app.js")
+  assert_true(page.references[0].integrity is Some("sha384-js"))
+  assert_true(page.references[1].kind is @audit.ModulePreload)
+  assert_eq(page.references[1].url, "/app.mjs")
+  assert_true(page.references[2].kind is @audit.Stylesheet)
+  assert_eq(page.references[2].url, "theme.css")
+  assert_true(page.references[3].kind is @audit.Preload)
+  assert_true(page.references[3].integrity is None)
+}
+
+///|
+test "scan keeps preload links active while disabled stylesheets stay skipped" {
+  let page = @audit.scan(
+    (
+      #|<link rel="preload" href="kept.js" integrity="sha384-a">
+      #|<link rel=stylesheet href=dropped.css disabled>
+    ),
+  )
+  assert_eq(page.references.length(), 1)
+  assert_true(page.references[0].kind is @audit.Preload)
+  assert_eq(page.references[0].url, "kept.js")
+}

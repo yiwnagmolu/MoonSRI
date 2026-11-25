@@ -1,25 +1,28 @@
 ///|
 fn usage() -> Unit {
   eprintln("Usage: moonsri generate <file> [algorithms]")
-  eprintln("       moonsri tag <script|stylesheet> <file> <url> [algorithms]")
+  eprintln(
+    "       moonsri tag <script|stylesheet|modulepreload> <file> <url> [algorithms]",
+  )
+  eprintln("       moonsri tag preload <file> <url> <as> [algorithms]")
   eprintln(
     "       moonsri check <file> <integrity-metadata> [--min-algorithm algorithm]",
   )
   eprintln(
-    "       moonsri manifest [--algorithm algorithms] [--root dir] [--from files.txt] [--] [file...]",
+    "       moonsri manifest [--algorithm algorithms] [--root dir] [--from files.txt] [--] [file|glob...]",
   )
   eprintln(
     "       moonsri check-manifest [--json] [--root dir] [--min-algorithm algorithm] [--] <manifest.json>",
   )
   eprintln("       moonsri diff-manifest <before.json> <after.json>")
   eprintln(
-    "       moonsri audit-html --root dir [--baseline manifest.json] [--json] [--min-algorithm algorithm] [--] <page>...",
+    "       moonsri audit-html --root dir [--baseline manifest.json] [--json] [--min-algorithm algorithm] [--pages-from pages.txt] [--] <page>...",
   )
   eprintln(
-    "       moonsri diff-html --before-root dir --after-root dir [--json] [--] <page>...",
+    "       moonsri diff-html --before-root dir --after-root dir [--json] [--pages-from pages.txt] [--] <page>...",
   )
   eprintln(
-    "       moonsri review-release --before-root dir --after-root dir [--json] [--] <page>...",
+    "       moonsri review-release --before-root dir --after-root dir [--graph mermaid|dot] [--] <page>...",
   )
   eprintln(
     "       moonsri review-release --before-root dir --after-root dir --before-pages old.txt --after-pages new.txt [--json]",

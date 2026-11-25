@@ -3,13 +3,13 @@ fn run_review_release(args : ArrayView[String]) -> Int32 {
   guard parse_release_args(args, review=true) is Some(options) else { return 2 }
   let (before_pages, after_pages) = match options.inventories {
     Some((before, after)) => {
-      guard read_release_inventory(before) is Some(before_pages) &&
-        read_release_inventory(after) is Some(after_pages) else {
+      guard read_page_list(before, "page inventory") is Some(before_pages) &&
+        read_page_list(after, "page inventory") is Some(after_pages) else {
         return 2
       }
       (before_pages[:], after_pages[:])
     }
-    None => (options.pages, options.pages)
+    None => (options.pages[:], options.pages[:])
   }
   let (start_root, end_root, start_pages, end_pages) = if options.rollback {
     (options.after, options.before, after_pages, before_pages)
@@ -57,6 +57,17 @@ fn run_review_release(args : ArrayView[String]) -> Int32 {
   // change as one atomic action, and the inventory provides its display kind.
   let describe = action => release_action_parts(action, before_set, after_set)
   let blocked = !plan.cycle.is_empty()
+  if options.graph is Some(format) {
+    guard render_release_graph(
+        page_inputs, asset_inputs, plan, format, describe,
+      )
+      is Some(output) else {
+      eprintln("Unknown graph format: " + Json::string(format).stringify())
+      return 2
+    }
+    println(output)
+    return if blocked { 1 } else { 0 }
+  }
   if order is Some(steps) {
     return check_release_order(plan, steps, describe, options, live_root => {
       verify_live_release(
@@ -123,10 +134,10 @@ fn run_review_release(args : ArrayView[String]) -> Int32 {
 }
 
 ///|
-fn read_release_inventory(path : String) -> Array[String]? {
-  guard read_utf8_file(path, "page inventory") is Some(source) else {
-    return None
-  }
+/// Read a UTF-8 page list with one relative page path per line. Trailing
+/// carriage returns are stripped and blank lines are skipped.
+fn read_page_list(path : String, description : String) -> Array[String]? {
+  guard read_utf8_file(path, description) is Some(source) else { return None }
   let pages = []
   for line in source.split("\n") {
     let page = line.strip_suffix("\r").unwrap_or(line)

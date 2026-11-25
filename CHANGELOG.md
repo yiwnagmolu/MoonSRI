@@ -2,6 +2,22 @@
 
 每个版本的源码可通过仓库中的 `v<版本号>` 标签查看。
 
+## 0.9.0 · 2026-11-25
+
+### 新增
+
+- `audit-html` 与 `diff-html` 支持 `--pages-from` 页面清单。构建系统可以把页面路径写入 UTF-8 文件（每行一个，支持 BOM 和 CRLF），与命令行页面合并；同一页面重复出现会以退出码 `2` 拒绝。
+- `review-release --graph mermaid|dot` 把页面、资源动作和全部先后约束渲染成 Mermaid 或 Graphviz 图。节点按规划器顺序编号，波次以子图分组，冲突环上的节点用红色标出；该选项与 `--json`、`--check-order` 互斥。
+- `manifest` 支持通配符列出资源。命令行和 `--from` 清单中的条目含 `*` 或 `?` 时按模式展开：`**` 跨整段路径，`*`、`?` 只作用于单个路径段。展开按字典序排序，未命中任何文件、模式非法或与显式路径重复都会以退出码 `2` 拒绝。
+- `audit-html` 现在审计 `link rel=preload` 与 `rel=modulepreload` 引用。SRI 规范允许这些 link 携带 `integrity`，浏览器会按声明校验预加载响应；缺少摘要或摘要不符同样计入退出码。
+- `tag` 支持 `modulepreload` 与 `preload` 标签。`tag preload <file> <url> <as> [algorithms]` 会校验 fetch 目的地并输出 `as` 属性。
+- `rollout` 公开 `Replay::pending`，按原始顺序列出尚未执行的动作，供部署面板区分"可执行"与"等待前置"。
+
+### 改进
+
+- HTML 扫描在解析 `rel` 属性时不为每个 token 分配数组，保持大型站点审计的解析开销。
+- 端到端基准新增 `mixed-inventory`（120 页混合切换、退役与上线）、`dense-mesh`（64 页共享 8 个资产、4 个原地覆盖）和 `deep-chain`（255 节点单链）三个场景，并补充 0.9.0 的实测数据。
+
 ## 0.8.0 · 2026-11-25
 
 - `review-release --check-order` 核对部署日志，接受满足依赖的跨波次操作，报告首个违规动作、尚缺的直接前置动作和就绪列表。`--require-complete` 可作为上线完成门禁。
