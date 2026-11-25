@@ -295,7 +295,7 @@ jobs:
           test "$status" -eq 1
           node -e 'const [rebuilt, untracked] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); const a = rebuilt.resources[0], b = untracked.resources[0]; if (a.status !== "match" || a.baseline.declaration !== "drift" || a.baseline.content !== "mismatch" || b.baseline.declaration !== "untracked" || b.baseline.content !== "not_checked") process.exit(1)' <<< "$report"
 
-          run_cli tag preload examples/hello.js 'app%20main.js' script > "$site/docs/preload.html"
+          run_cli tag preload examples/hello.js '/site%20assets/app%20main.js' script > "$site/docs/preload.html"
           printf '%s\n' '<link rel=stylesheet href=/style.css>' >> "$site/docs/preload.html"
           status=0
           report="$(run_cli audit-html --root "$site" --json docs/preload.html)" || status=$?
