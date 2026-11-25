@@ -1,8 +1,6 @@
 ///|
 fn run_review_release(args : ArrayView[String]) -> Int32 {
-  guard parse_release_args(args, allow_inventories=true) is Some(options) else {
-    return 2
-  }
+  guard parse_release_args(args, review=true) is Some(options) else { return 2 }
   let (before_pages, after_pages) = match options.inventories {
     Some((before, after)) => {
       guard read_release_inventory(before) is Some(before_pages) &&
@@ -13,21 +11,41 @@ fn run_review_release(args : ArrayView[String]) -> Int32 {
     }
     None => (options.pages, options.pages)
   }
+  let (start_root, end_root, start_pages, end_pages) = if options.rollback {
+    (options.after, options.before, after_pages, before_pages)
+  } else {
+    (options.before, options.after, before_pages, after_pages)
+  }
   if before_pages.is_empty() && after_pages.is_empty() {
     eprintln("At least one release page is required")
     return 2
   }
-  guard unique_release_pages(before_pages, "before") is Some(before_set) &&
-    unique_release_pages(after_pages, "after") is Some(after_set) else {
+  guard unique_release_pages(before_pages, "before") is Some(old_set) &&
+    unique_release_pages(after_pages, "after") is Some(new_set) else {
     return 2
   }
+  let (before_set, after_set) = if options.rollback {
+    (new_set, old_set)
+  } else {
+    (old_set, new_set)
+  }
+  let order = match options.order_file {
+    Some(path) => {
+      guard read_utf8_file(path, "release order") is Some(source) else {
+        return 2
+      }
+      match parse_release_order(source) {
+        Ok(steps) => Some(steps)
+        Err(message) => {
+          eprintln(message)
+          return 2
+        }
+      }
+    }
+    None => None
+  }
   let (page_inputs, asset_inputs, retained) = match
-    collect_release_inputs(
-      options.before,
-      options.after,
-      before_pages,
-      after_pages,
-    ) {
+    collect_release_inputs(start_root, end_root, start_pages, end_pages) {
     Ok(input) => input
     Err(reason) => {
       eprintln(reason)
@@ -39,6 +57,13 @@ fn run_review_release(args : ArrayView[String]) -> Int32 {
   // change as one atomic action, and the inventory provides its display kind.
   let describe = action => release_action_parts(action, before_set, after_set)
   let blocked = !plan.cycle.is_empty()
+  if order is Some(steps) {
+    return check_release_order(plan, steps, describe, options, live_root => {
+      verify_live_release(
+        live_root, start_root, end_root, before_set, page_inputs, steps,
+      )
+    })
+  }
   let status = if blocked { "blocked" } else { "safe" }
   if options.json_output {
     let encode = action => release_action_json(describe(action))
@@ -64,8 +89,14 @@ fn run_review_release(args : ArrayView[String]) -> Int32 {
     if options.inventories is Some(_) {
       report["retained_assets"] = Json::array(retained.map(Json::string))
     }
+    if options.rollback {
+      report["direction"] = Json::string("rollback")
+    }
     println(Json::object(report).stringify(indent=2))
   } else {
+    if options.rollback {
+      println("rollback")
+    }
     let format = action => release_action_text(describe(action))
     println(status)
     if blocked {

@@ -1,0 +1,6 @@
+[
+  { "kind": "publish_asset", "path": "assets/app.v2.js" },
+  { "kind": "switch_page", "path": "hours/index.html" },
+  { "kind": "publish_asset", "path": "assets/banner.js" },
+  { "kind": "switch_page", "path": "index.html" }
+]

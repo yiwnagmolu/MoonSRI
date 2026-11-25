@@ -11,7 +11,7 @@
 
 name = "yiwnagmolu/moonsri"
 
-version = "0.7.2"
+version = "0.8.0"
 
 readme = "README.md"
 
@@ -23,7 +23,7 @@ keywords = [ "sri", "integrity", "sha2", "subresource-integrity" ]
 
 preferred_target = "wasm"
 
-description = "MoonBit release planner for static sites with SRI audits, deployment waves, and cycle witnesses"
+description = "MoonBit SRI release planner with deployment order checks, live checkpoint verification, and rollback planning"
 
 import {
   "moonbitstack/mooncrypt@0.4.13",

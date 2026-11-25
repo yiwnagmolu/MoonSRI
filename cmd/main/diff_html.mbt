@@ -5,17 +5,25 @@ priv struct ReleaseArgs {
   json_output : Bool
   pages : ArrayView[String]
   inventories : (String, String)?
+  order_file : String?
+  require_complete : Bool
+  rollback : Bool
+  live_root : String?
 }
 
 ///|
 fn parse_release_args(
   args : ArrayView[String],
-  allow_inventories~ : Bool = false,
+  review~ : Bool = false,
 ) -> ReleaseArgs? {
   let mut before_root = None
   let mut after_root = None
   let mut before_list = None
   let mut after_list = None
+  let mut order_file = None
+  let mut require_complete = false
+  let mut rollback = false
+  let mut live_root = None
   let mut json_output = false
   let mut index = 0
   while index < args.length() {
@@ -38,16 +46,39 @@ fn parse_release_args(
         json_output = true
         index += 1
       }
-      "--before-pages" if allow_inventories &&
+      "--before-pages" if review &&
         before_list is None &&
         index + 1 < args.length() => {
         before_list = Some(args[index + 1])
         index += 2
       }
-      "--after-pages" if allow_inventories &&
+      "--after-pages" if review &&
         after_list is None &&
         index + 1 < args.length() => {
         after_list = Some(args[index + 1])
+        index += 2
+      }
+      "--check-order" if review &&
+        order_file is None &&
+        index + 1 < args.length() => {
+        order_file = Some(args[index + 1])
+        index += 2
+      }
+      "--require-complete" if review && !require_complete => {
+        require_complete = true
+        index += 1
+      }
+      "--rollback" if review && !rollback => {
+        rollback = true
+        index += 1
+      }
+      "--verify-live" if review &&
+        live_root is None &&
+        index + 1 < args.length() => {
+        guard parse_root_prefix(args[index + 1]) is Some(root) else {
+          return None
+        }
+        live_root = Some(root)
         index += 2
       }
       "--" => {
@@ -74,7 +105,21 @@ fn parse_release_args(
       return None
     }
   }
-  Some({ before, after, json_output, pages, inventories, })
+  if (require_complete || live_root is Some(_)) && order_file is None {
+    eprintln("--require-complete and --verify-live require --check-order")
+    return None
+  }
+  Some({
+    before,
+    after,
+    json_output,
+    pages,
+    inventories,
+    order_file,
+    require_complete,
+    rollback,
+    live_root,
+  })
 }
 
 ///|

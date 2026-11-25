@@ -38,8 +38,18 @@ moon run cmd/main --target wasm -- review-release --before-root examples/rollout
 moon run cmd/main --target wasm -- review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --json index.html hours/index.html
 ```
 
-预期返回 `0`，报告 `status` 为 `safe`。`waves` 给出满足依赖的发布批次：先发布 `assets/app.v2.js` 和 `assets/banner.js`，再切换引用它们的页面。营业时间页不依赖 `banner.js`，因此报告可以将没有依赖关系的动作放在同一批次。保留旧 `assets/app.js`，使仍在使用旧页面的访问者能继续读取旧脚本。
+预期返回 `0`，报告 `status` 为 `safe`。`waves` 给出两批动作。第一批发布 `assets/app.v2.js` 和 `assets/banner.js`，第二批切换两个页面。保留旧 `assets/app.js`，使仍在使用旧页面的访问者能继续读取旧脚本。
 
 报告的 `constraints` 描述动作的先后要求，`cycle` 在有循环时列出形成循环的动作。参数或快照读取有误时命令返回 `2`。Windows PowerShell 中可在运行命令后查看 `$LASTEXITCODE`。
 
 本案例只推导静态 HTML、声明和本地资源的 SRI 发布顺序。实际发布仍需处理缓存有效期、CDN 传播与旧资源保留期限等环境因素。
+
+## 验证跨波次的发布记录
+
+营业时间页只需要新版共享脚本，首页还需要横幅。[示例日志](order.json) 先发布共享脚本并切换营业时间页，再发布横幅并切换首页。
+
+```sh
+moon run cmd/main --target wasm -- review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --check-order examples/rollout/order.json --require-complete --verify-live examples/rollout/versioned --json index.html hours/index.html
+```
+
+预期退出码为 `0`，日志状态为 `complete`，四步全部通过，现场状态为 `match`。将 `--verify-live` 指向 `examples/rollout/before` 再运行，同一日志依然完整，但两个页面版本不符，两个待发布的脚本缺失，现场报告为 `drift`，进程返回 `1`。

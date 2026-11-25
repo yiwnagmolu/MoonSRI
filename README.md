@@ -1,12 +1,12 @@
 # MoonSRI
 
 [![CI](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml/badge.svg)](https://github.com/yiwnagmolu/MoonSRI/actions/workflows/ci.yml)
-[![版本 0.7.2](https://img.shields.io/badge/version-0.7.2-blue)](CHANGELOG.md)
+[![版本 0.8.0](https://img.shields.io/badge/version-0.8.0-blue)](CHANGELOG.md)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
-MoonSRI 是一个用 MoonBit 编写的 [Subresource Integrity（SRI）](https://www.w3.org/TR/sri/) 元数据生成与校验工具。它对**本地文件的原始字节**计算 SHA-256、SHA-384 或 SHA-512 摘要，输出可用于 HTML `integrity` 属性的字符串，也能检查已有元数据是否与文件相符。
+MoonSRI 用 MoonBit 为静态站点规划满足子资源完整性（SRI）的发布和回退顺序。给它两份构建目录和受影响的页面，它会校验两版资源，计算哪些文件可以先上传、哪些页面必须等待。发布途中，可以用动作日志和部署目录核实进度。[双页示例](examples/rollout/README.md)
 
-目前提供 MoonBit 库和命令行工具。适合在构建脚本、静态站点发布流程中为固定的 JavaScript / CSS 文件生成哈希，或在发布前检查文件是否被意外改动。
+库和命令行也支持生成或校验 SHA-256、SHA-384、SHA-512 摘要，审计 HTML 引用，以及比较发布清单。[W3C SRI 规范](https://www.w3.org/TR/sri/)
 
 ## 快速开始
 
@@ -134,6 +134,32 @@ moon run cmd/main --target wasm -- review-release --before-root previous-dist --
 
 仅在旧清单出现的页面生成 `retire_page`，仅在新清单出现的页面生成 `publish_page`，两边都有的页面生成 `switch_page`。如果旧页面无法加载新版共享脚本，下线动作必须先于覆盖脚本。需要新版脚本的新页面随后上线，这两步之间可以暂时没有对应页面在线。JSON 中的 `retained_assets` 列出仍应保留的仅旧版引用资源。
 
+#### 核对已执行步骤和实际文件
+
+将部署工具成功执行的动作按时间顺序写成 UTF-8 JSON 数组。每项沿用规划报告里的 `kind` 和 `path`。在门店示例中，只要新版共享脚本已就位，营业时间页就可以先于首页横幅切换。
+
+```sh
+moon run cmd/main --target wasm -- review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --check-order examples/rollout/order.json --require-complete --verify-live examples/rollout/versioned --json index.html hours/index.html
+```
+
+| 结果 | 含义 |
+| --- | --- |
+| `partial` / `complete` | 已提供的每一步都合法。`completed` / `total` 是进度，`ready` 列出现在可执行的全部动作。空数组可用于查询起点。 |
+| `rejected` | `failure.step` 是第一个被拒绝的步骤，从 1 开始。若缺少前置动作，`waiting_for` 会列出它们。进度和 `ready` 停在最后一个合法步骤。 |
+| `incomplete` / `blocked` | 开启 `--require-complete` 时，合法前缀尚未覆盖整次发布会得到 `incomplete`。计划本身有环时得到 `blocked` 和闭合的 `cycle`。 |
+
+加上 `--verify-live DIR`，还会得到独立的 `live.status`。MoonSRI 将应在线的页面、起点引用的资源（含保留的旧文件）以及日志中已发布的文件，与相应快照的 SHA-384 摘要逐个比较。未上线或已退役的页面应当不存在。仅目标页面引用的资源可提前预置，从日志登记其发布时开始核对。校验针对这次列出的页面和上述文件，适合对暂停写入的部署目录或其一致副本运行。历史中间状态需要对应时点的副本才能核实。
+
+合法日志配合现场漂移时，顶层 `status` 仍表示日志进度，`live.status` 为 `drift`。查看 `live.findings` 可定位到具体文件。CI 应检查命令退出码。日志与文件均通过时为 `0`，顺序违规、要求完整但仍缺步骤、存在循环或文件漂移为 `1`，输入无效或读取出错为 `2`。
+
+#### 从新版回退到旧版
+
+```sh
+moon run cmd/main --target wasm -- review-release --before-root examples/rollout/before --after-root examples/rollout/versioned --rollback --json index.html hours/index.html
+```
+
+`--rollback` 以完整新版快照为起点，重新计算恢复旧版所需的依赖。两份页面清单仍按原发布方向传入。可以将回退操作记录交给同一套 `--check-order`、`--require-complete` 和 `--verify-live` 选项。若要从发布中途回退，需将当时的实际目录和活动页面清单作为规划起点。
+
 ## 批量生成与校验
 
 在项目根目录列出要发布的资源，生成一份 JSON 清单：
@@ -197,7 +223,7 @@ moon run cmd/main --target wasm -- check-manifest --json --min-algorithm sha384 
 在已有的 MoonBit 项目中，从 [Mooncakes](https://mooncakes.io/docs/yiwnagmolu/moonsri/) 安装指定版本：
 
 ```sh
-moon add yiwnagmolu/moonsri@0.7.2
+moon add yiwnagmolu/moonsri@0.8.0
 ```
 
 在调用方的 `moon.pkg` 中加入包导入。如果调用方是新的命令行包，可以使用以下配置：
@@ -240,6 +266,8 @@ fn main {
 
 子包 `yiwnagmolu/moonsri/audit` 的 `scan(html)` 返回 HTML 中的脚本和样式表引用、对应的 `integrity` 和首个生效的 `base href`。它依赖 [moonbit-community/html](https://mooncakes.io/docs/moonbit-community/html/) 解析 HTML，可以在 MoonBit 构建工具里独立调用。
 
+子包 `yiwnagmolu/moonsri/rollout` 提供 `plan` 和 `begin_replay`。部署适配器可在内存中保存回放状态，逐条调用 `apply(action)`。成功后仅更新该动作的直接后继，拒绝的动作可在满足依赖后重试。`ready()` 以确定顺序返回当前可执行的动作，`completed()` 和 `total()` 可用于进度显示。
+
 ## 范围与行为
 
 - 依据 [W3C SRI 规范](https://www.w3.org/TR/sri/)处理算法优先级、多个摘要和保留的 `?options` 部分；目前没有已定义的 SRI 选项。
@@ -258,6 +286,6 @@ moon info
 moon fmt
 ```
 
-测试包含 SHA-2 已知向量、最强算法选择、同等强度多摘要、未知算法及空元数据。CI 在 WebAssembly 和 JavaScript 目标运行测试及命令行示例。
+测试包含 SHA-2 已知向量、SRI 算法选择、发布模型穷举、深链和宽图。CI 在 WebAssembly 和 JavaScript 目标运行库测试，并对真实目录回放合法和违规日志、核实发布与回退的现场文件。端到端基准的工作负载、运行说明和逐次测量见[基准报告](benchmarks/README.md)。
 
 本项目使用 [Apache-2.0 许可证](LICENSE)。

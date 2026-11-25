@@ -25,6 +25,9 @@ fn usage() -> Unit {
     "       moonsri review-release --before-root dir --after-root dir --before-pages old.txt --after-pages new.txt [--json]",
   )
   eprintln(
+    "       review-release options: [--rollback] [--check-order steps.json [--require-complete] [--verify-live dir]]",
+  )
+  eprintln(
     "Algorithms: sha256, sha384, sha512 (comma-separated; default: sha384)",
   )
 }

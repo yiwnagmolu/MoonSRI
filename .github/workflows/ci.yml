@@ -20,6 +20,17 @@ jobs:
         run: moon check --target ${{ matrix.target }}
       - name: Test
         run: moon test --target ${{ matrix.target }}
+      - name: Check deployment journals, live checkpoints and rollback
+        shell: bash
+        env:
+          MOON_TARGET: ${{ matrix.target }}
+        run: |
+          moon build --release --target "$MOON_TARGET" cmd/main
+          runner=moonrun
+          if [ "$MOON_TARGET" = js ]; then runner=node; fi
+          artifact="_build/$MOON_TARGET/release/build/cmd/main/main.$MOON_TARGET"
+          node tests/release-order.mjs "$runner" "$artifact"
+          node tests/release-live.mjs "$runner" "$artifact"
       - name: CLI smoke test
         shell: bash
         run: |
