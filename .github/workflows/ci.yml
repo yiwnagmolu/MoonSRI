@@ -302,9 +302,9 @@ jobs:
           test "$status" -eq 1
           node -e 'const [page] = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (page.resources[0].kind !== "preload" || page.resources[0].status !== "match" || page.resources[1].kind !== "stylesheet" || page.resources[1].status !== "missing_integrity") process.exit(1)' <<< "$report"
 
-          printf '%s\n' 'docs/ok.html' 'docs/base.html' > "$site/pages.txt"
+          printf '%s\n' 'docs/rebuilt.html' 'docs/untracked.html' > "$site/pages.txt"
           report="$(run_cli audit-html --root "$site" --pages-from "$site/pages.txt" --json)"
-          node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages[0].page !== "docs/ok.html" || pages[1].page !== "docs/base.html") process.exit(1)' <<< "$report"
+          node -e 'const pages = JSON.parse(require("node:fs").readFileSync(0, "utf8")); if (pages.length !== 2 || pages[0].page !== "docs/rebuilt.html" || pages[1].page !== "docs/untracked.html" || pages.some(p => p.status !== "ok")) process.exit(1)' <<< "$report"
           printf '%s\n' 'docs/ok.html' 'docs/ok.html' > "$site/dup-pages.txt"
           status=0
           report="$(run_cli audit-html --root "$site" --pages-from "$site/dup-pages.txt" --json)" || status=$?
@@ -394,7 +394,9 @@ jobs:
           test "$status" -eq 1
           [[ "$blocked" == *'style n0 fill:#ffcccc'* ]]
           [[ "$blocked" == *'n2 --> n0'* ]]
-          dot="$(run_cli review-release --before-root examples/rollout/before --after-root examples/rollout/overwrite --graph dot index.html hours/index.html)"
+          status=0
+          dot="$(run_cli review-release --before-root examples/rollout/before --after-root examples/rollout/overwrite --graph dot index.html hours/index.html)" || status=$?
+          test "$status" -eq 1
           [[ "$dot" == *'digraph moonsri {'* ]]
           [[ "$dot" == *'subgraph cluster_wave1'* ]]
           [[ "$dot" == *'color=red'* ]]
